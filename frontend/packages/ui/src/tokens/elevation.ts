@@ -1,33 +1,41 @@
 import type { ViewStyle } from 'react-native';
 
-export const elevation: Record<'none' | 'sm' | 'md' | 'lg' | 'xl', ViewStyle> = {
-  none: {},
-  sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  xl: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    elevation: 8,
-  },
+/**
+ * Three elevation steps (Design System §04), translated to RN shadows.
+ * The CSS uses layered, negative-spread shadows that RN can't reproduce
+ * exactly, so these are tuned single-layer approximations of the same feel.
+ *   e1 · card   e2 · raised   e3 · overlay
+ */
+const e1: ViewStyle = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.1,
+  shadowRadius: 16,
+  elevation: 2,
 };
+const e2: ViewStyle = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.14,
+  shadowRadius: 24,
+  elevation: 6,
+};
+const e3: ViewStyle = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 20 },
+  shadowOpacity: 0.22,
+  shadowRadius: 40,
+  elevation: 14,
+};
+
+export const elevation = {
+  none: {} as ViewStyle,
+  e1,
+  e2,
+  e3,
+  card: e1,
+  raised: e2,
+  overlay: e3,
+} satisfies Record<string, ViewStyle>;
+
+export type Elevation = keyof typeof elevation;

@@ -5,12 +5,18 @@
     "scheme": "ileeko",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F1EDE4",
     "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0F3D2E",
+      "resizeMode": "contain"
+    },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ileeko.landlord"
+      "bundleIdentifier": "com.ileeko.landlord",
+      "userInterfaceStyle": "light"
     },
     "android": {
       "package": "com.ileeko.landlord"

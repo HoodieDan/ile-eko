@@ -1,37 +1,45 @@
 import React from 'react';
-import { View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { Body, Heading } from './Typography';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors } from '../tokens/colors';
+import { Text } from './Text';
+import { Icon, type IconName } from './Icon';
+import { Button } from './Button';
 
 export interface EmptyStateProps {
+  icon: IconName;
   title: string;
-  description?: string;
-  action?: React.ReactNode;
+  message?: string;
+  action?: { label: string; onPress?: () => void };
+  style?: StyleProp<ViewStyle>;
 }
 
-export function EmptyState({ title, description, action }: EmptyStateProps): React.ReactElement {
-  const theme = useTheme();
+export function EmptyState({ icon, title, message, action, style }: EmptyStateProps): React.ReactElement {
   return (
-    <View
-      style={{
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: theme.spacing['2xl'],
-      }}
-    >
-      <Heading level={3} align="center">
+    <View style={[{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 }, style]}>
+      <View
+        style={{
+          width: 66,
+          height: 66,
+          borderRadius: 20,
+          backgroundColor: colors.surface2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 16,
+        }}
+      >
+        <Icon name={icon} size={30} color={colors.muted} />
+      </View>
+      <Text variant="h3" center>
         {title}
-      </Heading>
-      {description ? (
-        <Body
-          color={theme.colors.textMuted}
-          align="center"
-          style={{ marginTop: theme.spacing.sm }}
-        >
-          {description}
-        </Body>
+      </Text>
+      {message ? (
+        <Text variant="caption" color={colors.muted} center style={{ marginTop: 5 }}>
+          {message}
+        </Text>
       ) : null}
-      {action ? <View style={{ marginTop: theme.spacing.xl }}>{action}</View> : null}
+      {action ? (
+        <Button title={action.label} onPress={action.onPress} size="sm" fullWidth={false} style={{ marginTop: 16 }} />
+      ) : null}
     </View>
   );
 }

@@ -1,52 +1,69 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { Body, Caption } from './Typography';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors } from '../tokens/colors';
+import { elevation } from '../tokens/elevation';
+import { Text } from './Text';
+import { Icon } from './Icon';
 
 export interface ListRowProps {
   title: string;
   subtitle?: string;
-  leading?: React.ReactNode;
-  trailing?: React.ReactNode;
+  left?: React.ReactNode;
+  right?: React.ReactNode;
+  /** Show a trailing chevron (overrides `right`). */
+  chevron?: boolean;
   onPress?: () => void;
+  flat?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
+/** Generic list row — optional left slot, title/subtitle, right slot or chevron. */
 export function ListRow({
   title,
   subtitle,
-  leading,
-  trailing,
+  left,
+  right,
+  chevron = false,
   onPress,
+  flat = false,
+  style,
 }: ListRowProps): React.ReactElement {
-  const theme = useTheme();
-  const Inner = (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: theme.spacing.md,
-        paddingHorizontal: theme.spacing.lg,
-        backgroundColor: theme.colors.surface,
-      }}
-    >
-      {leading ? <View style={{ marginRight: theme.spacing.md }}>{leading}</View> : null}
-      <View style={{ flex: 1 }}>
-        <Body strong>{title}</Body>
-        {subtitle ? <Caption color={theme.colors.textMuted}>{subtitle}</Caption> : null}
+  const body = (
+    <>
+      {left ? <View>{left}</View> : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text variant="bodyStrong" numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 2 }}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
-      {trailing ? <View style={{ marginLeft: theme.spacing.md }}>{trailing}</View> : null}
-    </View>
+      {chevron ? <Icon name="fwd" size={18} color={colors.muted} /> : right}
+    </>
   );
+
+  const base: StyleProp<ViewStyle> = [
+    {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 12,
+    },
+    flat ? { borderWidth: 1, borderColor: colors.line } : elevation.e1,
+    style,
+  ];
+
   if (onPress) {
     return (
-      <Pressable
-        onPress={onPress}
-        android_ripple={{ color: theme.colors.surfaceMuted }}
-        style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-      >
-        {Inner}
+      <Pressable onPress={onPress} style={({ pressed }) => [base, { transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
+        {body}
       </Pressable>
     );
   }
-  return Inner;
+  return <View style={base}>{body}</View>;
 }

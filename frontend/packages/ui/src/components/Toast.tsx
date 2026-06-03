@@ -1,88 +1,77 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { Body } from './Typography';
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { Animated, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../tokens/colors';
+import { Text } from './Text';
+import { Icon, type IconName } from './Icon';
 
-export type ToastTone = 'info' | 'success' | 'warning' | 'danger';
-
-export interface ToastShape {
-  id: string;
-  message: string;
-  tone: ToastTone;
+interface ToastState {
+  msg: string;
+  icon: IconName;
 }
 
 interface ToastContextValue {
-  show: (message: string, tone?: ToastTone) => void;
+  showToast: (msg: string, icon?: IconName) => void;
 }
 
-const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+const ToastContext = createContext<ToastContextValue>({ showToast: () => undefined });
+
+export function useToast(): ToastContextValue {
+  return useContext(ToastContext);
+}
 
 export function ToastProvider({ children }: { children: React.ReactNode }): React.ReactElement {
-  const [toasts, setToasts] = useState<ToastShape[]>([]);
-  const show = useCallback((message: string, tone: ToastTone = 'info') => {
-    const id = `${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, tone }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2800);
-  }, []);
-  const value = useMemo(() => ({ show }), [show]);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insets = useSafeAreaInsets();
+
+  const showToast = useCallback(
+    (msg: string, icon: IconName = 'checkCircle') => {
+      if (timer.current) clearTimeout(timer.current);
+      setToast({ msg, icon });
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      timer.current = setTimeout(() => {
+        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setToast(null));
+      }, 2600);
+    },
+    [opacity],
+  );
+
   return (
-    <ToastContext.Provider value={value}>
-      {children}
-      <ToastStack toasts={toasts} />
+    <ToastContext.Provider value={{ showToast }}>
+      <View style={{ flex: 1 }}>
+        {children}
+        {toast ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 16,
+            right: 16,
+            bottom: insets.bottom + 24,
+            opacity,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            backgroundColor: colors.ink,
+            borderRadius: 15,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 18 },
+            shadowOpacity: 0.4,
+            shadowRadius: 30,
+            elevation: 12,
+          }}
+        >
+          <Icon name={toast.icon} size={20} color="#8FD3A8" strokeWidth={2} />
+          <Text variant="bodyStrong" color={colors.bg} style={{ flex: 1 }}>
+            {toast.msg}
+          </Text>
+        </Animated.View>
+        ) : null}
+      </View>
     </ToastContext.Provider>
   );
 }
-
-function ToastStack({ toasts }: { toasts: ToastShape[] }): React.ReactElement {
-  const theme = useTheme();
-  return (
-    <View pointerEvents="none" style={styles.stack}>
-      {toasts.map((t) => {
-        const bg =
-          t.tone === 'success'
-            ? theme.colors.success
-            : t.tone === 'warning'
-              ? theme.colors.warning
-              : t.tone === 'danger'
-                ? theme.colors.danger
-                : theme.colors.primary;
-        return (
-          <Animated.View
-            key={t.id}
-            style={[
-              styles.toast,
-              {
-                backgroundColor: bg,
-                borderRadius: theme.radii.md,
-                marginBottom: theme.spacing.sm,
-              },
-            ]}
-          >
-            <Body color="#FFFFFF">{t.message}</Body>
-          </Animated.View>
-        );
-      })}
-    </View>
-  );
-}
-
-export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used inside <ToastProvider>');
-  return ctx;
-}
-
-const styles = StyleSheet.create({
-  stack: {
-    position: 'absolute',
-    bottom: 24,
-    left: 16,
-    right: 16,
-  },
-  toast: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-});

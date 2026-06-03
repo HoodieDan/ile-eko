@@ -1,31 +1,38 @@
 import React from 'react';
-import { View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { Card } from './Card';
-import { Caption, Heading, Overline } from './Typography';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors } from '../tokens/colors';
+import { elevation } from '../tokens/elevation';
+import { Text } from './Text';
 
 export interface StatCardProps {
   label: string;
   value: string;
-  hint?: string;
-  trend?: 'up' | 'down' | 'flat';
+  sub?: string;
+  subColor?: string;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function StatCard({ label, value, hint, trend }: StatCardProps): React.ReactElement {
-  const theme = useTheme();
-  const trendColor =
-    trend === 'up' ? theme.colors.success : trend === 'down' ? theme.colors.danger : theme.colors.textMuted;
+/** Metric card — small label, big display value, optional sub line. */
+export function StatCard({ label, value, sub, subColor = colors.muted, style }: StatCardProps): React.ReactElement {
   return (
-    <Card>
-      <Overline color={theme.colors.textMuted}>{label}</Overline>
-      <View style={{ marginTop: theme.spacing.sm }}>
-        <Heading level={2}>{value}</Heading>
-      </View>
-      {hint ? (
-        <Caption color={trendColor} style={{ marginTop: theme.spacing.xs }}>
-          {hint}
-        </Caption>
+    <View
+      style={[
+        { backgroundColor: colors.surface, borderRadius: 16, padding: 15 },
+        elevation.e1,
+        style,
+      ]}
+    >
+      <Text variant="captionStrong" color={colors.muted} style={{ fontSize: 11.5 }}>
+        {label}
+      </Text>
+      <Text variant="display" style={{ fontSize: 26, lineHeight: 30, marginTop: 5 }}>
+        {value}
+      </Text>
+      {sub ? (
+        <Text variant="captionStrong" color={subColor} style={{ fontSize: 11.5, marginTop: 3 }}>
+          {sub}
+        </Text>
       ) : null}
-    </Card>
+    </View>
   );
 }

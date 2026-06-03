@@ -5,12 +5,18 @@
     "scheme": "ileekohomes",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#ECEEF6",
     "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#171B45",
+      "resizeMode": "contain"
+    },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ileeko.homes"
+      "bundleIdentifier": "com.ileeko.homes",
+      "userInterfaceStyle": "light"
     },
     "android": {
       "package": "com.ileeko.homes"

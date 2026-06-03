@@ -1,44 +1,43 @@
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { Body } from './Typography';
+import { colors } from '../tokens/colors';
+import { Text } from './Text';
+import { Icon } from './Icon';
 
 export interface CheckboxProps {
-  label?: string;
   checked: boolean;
-  onChange: (next: boolean) => void;
+  onChange?: (v: boolean) => void;
+  label?: string;
   disabled?: boolean;
 }
 
-export function Checkbox({ label, checked, onChange, disabled }: CheckboxProps): React.ReactElement {
-  const theme = useTheme();
+/** 24×24 checkbox — checked = forest fill + white tick, empty = line border. */
+export function Checkbox({ checked, onChange, label, disabled = false }: CheckboxProps): React.ReactElement {
   return (
     <Pressable
-      onPress={() => !disabled && onChange(!checked)}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: theme.spacing.xs,
-        opacity: disabled ? 0.5 : 1,
-      }}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked, disabled: !!disabled }}
+      onPress={() => onChange?.(!checked)}
+      disabled={disabled}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 9, opacity: disabled ? 0.5 : 1 }}
     >
       <View
         style={{
-          width: 22,
-          height: 22,
-          borderRadius: theme.radii.sm,
-          borderWidth: 2,
-          borderColor: checked ? theme.colors.primary : theme.colors.borderStrong,
-          backgroundColor: checked ? theme.colors.primary : 'transparent',
+          width: 24,
+          height: 24,
+          borderRadius: 7,
           alignItems: 'center',
           justifyContent: 'center',
+          backgroundColor: checked ? colors.primary : 'transparent',
+          borderWidth: checked ? 0 : 1.6,
+          borderColor: colors.line,
         }}
       >
-        {checked ? <Body color={theme.colors.primaryOn} strong>{'✓'}</Body> : null}
+        {checked ? <Icon name="check" size={15} color="#FFFFFF" strokeWidth={2.6} /> : null}
       </View>
-      {label ? <Body style={{ marginLeft: theme.spacing.sm }}>{label}</Body> : null}
+      {label ? (
+        <Text variant="bodyMedium" color={checked ? colors.ink : colors.muted}>
+          {label}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }

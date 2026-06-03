@@ -1,106 +1,112 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { Body, Caption } from './Typography';
+import { Modal, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors } from '../tokens/colors';
+import { radii } from '../tokens/radii';
+import { Text } from './Text';
+import { Icon } from './Icon';
 
-export interface SelectOption<T extends string> {
-  label: string;
+export interface SelectOption<T extends string = string> {
   value: T;
+  label: string;
 }
 
-export interface SelectProps<T extends string> {
+export interface SelectProps<T extends string = string> {
   label?: string;
-  value: T | null;
-  onChange: (next: T) => void;
+  value?: T;
   options: SelectOption<T>[];
   placeholder?: string;
+  onChange?: (v: T) => void;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
-export function Select<T extends string>({
+/** Field-styled select that opens a bottom sheet of options. */
+export function Select<T extends string = string>({
   label,
   value,
-  onChange,
   options,
-  placeholder = 'Select…',
+  placeholder = 'Select',
+  onChange,
+  containerStyle,
 }: SelectProps<T>): React.ReactElement {
-  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value);
 
   return (
-    <View>
+    <View style={containerStyle}>
       {label ? (
-        <Body strong style={{ marginBottom: theme.spacing.xs }}>
+        <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13, marginBottom: 7 }}>
           {label}
-        </Body>
+        </Text>
       ) : null}
       <Pressable
         onPress={() => setOpen(true)}
-        style={[
-          styles.field,
-          {
-            borderColor: theme.colors.border,
-            backgroundColor: theme.colors.surface,
-            borderRadius: theme.radii.md,
-            paddingHorizontal: theme.spacing.md,
-          },
-        ]}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          minHeight: 54,
+          borderRadius: 14,
+          borderWidth: 1.5,
+          borderColor: colors.line,
+          backgroundColor: colors.surface,
+          paddingHorizontal: 16,
+        }}
       >
-        <Body color={current ? theme.colors.text : theme.colors.textSubtle}>
+        <Text variant="body" color={current ? colors.ink : 'rgba(90,106,98,0.65)'} style={{ flex: 1, fontSize: 15.5 }}>
           {current?.label ?? placeholder}
-        </Body>
+        </Text>
+        <Icon name="fwd" size={18} color={colors.muted} />
       </Pressable>
+
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <Pressable
+          onPress={() => setOpen(false)}
+          style={{ flex: 1, backgroundColor: 'rgba(15,16,14,0.42)', justifyContent: 'flex-end' }}
+        >
           <Pressable
-            style={[
-              styles.sheet,
-              { backgroundColor: theme.colors.surface, borderRadius: theme.radii.lg },
-            ]}
             onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radii.sheet,
+              borderTopRightRadius: radii.sheet,
+              paddingTop: 10,
+              paddingBottom: 28,
+              paddingHorizontal: 20,
+            }}
           >
-            <Caption color={theme.colors.textMuted} style={{ padding: theme.spacing.lg }}>
-              {label ?? 'Select an option'}
-            </Caption>
-            <ScrollView style={{ maxHeight: 320 }}>
-              {options.map((opt) => (
+            <View style={{ width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line, alignSelf: 'center', marginBottom: 14 }} />
+            {label ? (
+              <Text variant="title" style={{ marginBottom: 8 }}>
+                {label}
+              </Text>
+            ) : null}
+            {options.map((opt) => {
+              const on = opt.value === value;
+              return (
                 <Pressable
                   key={opt.value}
                   onPress={() => {
-                    onChange(opt.value);
+                    onChange?.(opt.value);
                     setOpen(false);
                   }}
-                  style={({ pressed }) => [
-                    styles.option,
-                    {
-                      backgroundColor: pressed
-                        ? theme.colors.surfaceMuted
-                        : theme.colors.surface,
-                    },
-                  ]}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 14,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.line,
+                  }}
                 >
-                  <Body>{opt.label}</Body>
+                  <Text variant={on ? 'bodyStrong' : 'body'} color={on ? colors.primary : colors.ink}>
+                    {opt.label}
+                  </Text>
+                  {on ? <Icon name="check" size={18} color={colors.primary} strokeWidth={2.4} /> : null}
                 </Pressable>
-              ))}
-            </ScrollView>
+              );
+            })}
           </Pressable>
         </Pressable>
       </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  field: {
-    minHeight: 48,
-    borderWidth: 1,
-    justifyContent: 'center',
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheet: { maxHeight: '70%' },
-  option: { padding: 16 },
-});
