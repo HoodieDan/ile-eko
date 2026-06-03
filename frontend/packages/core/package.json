@@ -25,10 +25,10 @@
   "devDependencies": {
     "@ile-eko/config": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
-    "@types/react": "~18.3.12",
-    "expo-secure-store": "~14.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.9",
+    "@types/react": "~19.1.17",
+    "expo-secure-store": "~15.0.8",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3"
   }
