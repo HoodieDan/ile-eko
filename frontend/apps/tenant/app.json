@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Ilé Èkó Homes",
+    "slug": "ile-eko-homes",
+    "scheme": "ileekohomes",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ileeko.homes"
+    },
+    "android": {
+      "package": "com.ileeko.homes"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

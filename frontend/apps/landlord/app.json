@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Ilé Èkó",
+    "slug": "ile-eko-landlord",
+    "scheme": "ileeko",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ileeko.landlord"
+    },
+    "android": {
+      "package": "com.ileeko.landlord"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

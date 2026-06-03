@@ -1,0 +1,28 @@
+{
+  "name": "ile-eko-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ilé Èkó — Expo monorepo (landlord + tenant apps) sharing one design system.",
+  "scripts": {
+    "landlord": "pnpm --filter landlord start",
+    "tenant": "pnpm --filter tenant start",
+    "dev": "concurrently -n landlord,tenant -c blue,green \"pnpm landlord\" \"pnpm tenant\"",
+    "ios:landlord": "pnpm --filter landlord ios",
+    "android:landlord": "pnpm --filter landlord android",
+    "ios:tenant": "pnpm --filter tenant ios",
+    "android:tenant": "pnpm --filter tenant android",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rimraf node_modules .turbo"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=20"
+  }
+}

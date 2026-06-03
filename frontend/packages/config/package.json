@@ -1,0 +1,13 @@
+{
+  "name": "@ile-eko/config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.expo.json",
+    "tsconfig.package.json",
+    "eslint.config.js",
+    ".prettierrc.json"
+  ]
+}

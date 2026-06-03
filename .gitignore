@@ -1,0 +1,52 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# TypeScript
+*.tsbuildinfo
+dist/
+build/
+
+# Expo
+.expo/
+.expo-shared/
+web-build/
+expo-env.d.ts
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Native
+ios/Pods/
+android/.gradle/
+android/app/build/
+android/build/
+*.iml
+.idea/
+.vscode/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Turbo
+.turbo/
+
+# Logs
+*.log
+
+# Test
+coverage/
