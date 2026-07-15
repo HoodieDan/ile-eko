@@ -17,3 +17,5 @@ export { Enquiry, type EnquiryDoc } from './Enquiry';
 export { SavedListing, type SavedListingDoc } from './SavedListing';
 export { ListingView, type ListingViewDoc } from './ListingView';
 export { AIConversation, type ConversationDoc } from './AIConversation';
+export { Notification, type NotificationDoc } from './Notification';
+export { TaskRun, type TaskRunDoc } from './TaskRun';

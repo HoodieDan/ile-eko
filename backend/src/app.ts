@@ -23,6 +23,8 @@ import { recommendationsRouter } from './modules/recommendations/recommendations
 import { savedRouter } from './modules/saved/saved.routes';
 import { enquiriesRouter } from './modules/enquiries/enquiries.routes';
 import { aiRouter } from './modules/ai/ai.routes';
+import { notificationsRouter } from './modules/notifications/notifications.routes';
+import { tasksRouter } from './modules/tasks/tasks.routes';
 
 /**
  * Build the Express app (no listen — testable). API is versioned under /v1 (§6);
@@ -63,7 +65,11 @@ export function createApp(): Express {
   v1.use('/saved-listings', savedRouter);
   v1.use('/enquiries', enquiriesRouter);
   v1.use('/ai', aiRouter);
+  v1.use('/notifications', notificationsRouter);
   app.use('/v1', v1);
+
+  // Internal scheduler/queue endpoints (OIDC in prod; shared-secret gated here).
+  app.use('/tasks', tasksRouter);
 
   app.use(notFound);
   app.use(errorHandler);
