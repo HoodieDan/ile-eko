@@ -16,6 +16,7 @@ import { paymentsRouter } from './modules/payments/payments.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { activityRouter } from './modules/activity/activity.routes';
 import { uploadsRouter } from './modules/uploads/uploads.routes';
+import { teamRouter } from './modules/team/team.routes';
 
 /**
  * Build the Express app (no listen — testable). API is versioned under /v1 (§6);
@@ -49,6 +50,7 @@ export function createApp(): Express {
   v1.use('/dashboard', dashboardRouter);
   v1.use('/activity', activityRouter);
   v1.use('/uploads', uploadsRouter);
+  v1.use('/team', teamRouter);
   app.use('/v1', v1);
 
   app.use(notFound);

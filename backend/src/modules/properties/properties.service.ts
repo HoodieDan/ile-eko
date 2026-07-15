@@ -31,8 +31,10 @@ async function ownedProperty(landlordId: string, id: string): Promise<PropertyDo
 export async function listProperties(
   landlordId: string,
   filters: { status?: string; area?: string; q?: string },
+  propertyIds: string[] | null = null,
 ): Promise<PropertyDTO[]> {
   const query: Record<string, unknown> = { landlordId, archivedAt: { $exists: false } };
+  if (propertyIds) query._id = { $in: propertyIds };
   if (filters.status) query.statusCache = filters.status;
   if (filters.area) query.area = new RegExp(filters.area, 'i');
   if (filters.q) query.$text = { $search: filters.q };
@@ -59,7 +61,12 @@ export async function propertyStats(landlordId: string): Promise<PropertyStats> 
   return stats;
 }
 
-export async function getProperty(landlordId: string, id: string): Promise<PropertyDTO> {
+export async function getProperty(
+  landlordId: string,
+  id: string,
+  propertyIds: string[] | null = null,
+): Promise<PropertyDTO> {
+  if (propertyIds && !propertyIds.includes(id)) throw AppError.notFound('Property not found');
   const property = await ownedProperty(landlordId, id);
   return presentProperty(property, await unitCountFor(property.id));
 }

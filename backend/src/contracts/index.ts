@@ -10,3 +10,4 @@ export * from './ledger';
 export * from './activity';
 export * from './dashboard';
 export * from './upload';
+export * from './team';

@@ -1,5 +1,6 @@
 import type { Role } from '../contracts';
 import type { UserDoc, SessionDoc } from '../models';
+import type { OrgContext } from '../rbac/access';
 
 /** Auth context attached by the `authenticate` middleware. */
 export interface AuthContext {
@@ -15,6 +16,7 @@ declare global {
   namespace Express {
     interface Request {
       auth?: AuthContext;
+      org?: OrgContext;
     }
   }
 }

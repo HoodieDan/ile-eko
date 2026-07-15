@@ -2,47 +2,58 @@ import { Router } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authenticate } from '../../middleware/authenticate';
 import { requireRole } from '../../middleware/authorize';
+import { attachOrg, orgOf } from '../../middleware/org';
 import { validate } from '../../middleware/validate';
-import { actorFrom, landlordScope } from '../../utils/http';
+import { actorFrom } from '../../utils/http';
+import { AppError } from '../../utils/AppError';
+import { propertyPermission } from '../../rbac/access';
 import { CreatePropertyInput, UpdatePropertyInput } from '../../contracts';
 import * as svc from './properties.service';
 
 export const propertiesRouter: Router = Router();
 
-propertiesRouter.use(authenticate, requireRole('landlord', 'admin'));
+// Landlord + admin + caretaker (caretaker scoped to assigned properties).
+propertiesRouter.use(authenticate, requireRole('landlord', 'admin', 'caretaker'), attachOrg);
 
 propertiesRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const items = await svc.listProperties(landlordScope(req), {
-      status: req.query.status as string | undefined,
-      area: req.query.area as string | undefined,
-      q: req.query.q as string | undefined,
-    });
+    const org = orgOf(req);
+    const items = await svc.listProperties(
+      org.landlordId,
+      {
+        status: req.query.status as string | undefined,
+        area: req.query.area as string | undefined,
+        q: req.query.q as string | undefined,
+      },
+      org.propertyIds,
+    );
     res.json({ items, total: items.length });
   }),
 );
 
 propertiesRouter.get(
   '/stats',
+  requireRole('landlord', 'admin'),
   asyncHandler(async (req, res) => {
-    res.json(await svc.propertyStats(landlordScope(req)));
+    res.json(await svc.propertyStats(orgOf(req).landlordId));
   }),
 );
 
 propertiesRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    res.json(await svc.getProperty(landlordScope(req), req.params.id as string));
+    const org = orgOf(req);
+    res.json(await svc.getProperty(org.landlordId, req.params.id as string, org.propertyIds));
   }),
 );
 
 propertiesRouter.post(
   '/',
+  requireRole('landlord', 'admin'),
   validate(CreatePropertyInput),
   asyncHandler(async (req, res) => {
-    const dto = await svc.createProperty(landlordScope(req), actorFrom(req), req.body);
-    res.status(201).json(dto);
+    res.status(201).json(await svc.createProperty(orgOf(req).landlordId, actorFrom(req), req.body));
   }),
 );
 
@@ -50,14 +61,18 @@ propertiesRouter.patch(
   '/:id',
   validate(UpdatePropertyInput),
   asyncHandler(async (req, res) => {
-    res.json(await svc.updateProperty(landlordScope(req), actorFrom(req), req.params.id as string, req.body));
+    const org = orgOf(req);
+    const id = req.params.id as string;
+    if (!propertyPermission(org, id, 'canEditProperty')) throw AppError.forbidden('Not permitted');
+    res.json(await svc.updateProperty(org.landlordId, actorFrom(req), id, req.body));
   }),
 );
 
 propertiesRouter.delete(
   '/:id',
+  requireRole('landlord', 'admin'), // destructive: landlord-only
   asyncHandler(async (req, res) => {
-    await svc.archiveProperty(landlordScope(req), actorFrom(req), req.params.id as string);
+    await svc.archiveProperty(orgOf(req).landlordId, actorFrom(req), req.params.id as string);
     res.json({ ok: true });
   }),
 );

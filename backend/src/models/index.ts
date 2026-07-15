@@ -11,3 +11,5 @@ export { Payment, type PaymentDoc } from './Payment';
 export { PaymentAllocation, type AllocationDoc } from './PaymentAllocation';
 export { ActivityLog, type ActivityLogDoc } from './ActivityLog';
 export { OutboxEvent, EffectDelivery, type OutboxEventDoc, type EffectDeliveryDoc } from './OutboxEvent';
+export { TeamMembership, type MembershipDoc } from './TeamMembership';
+export { TeamInvitation, type InvitationDoc } from './TeamInvitation';

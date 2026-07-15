@@ -19,11 +19,24 @@ async function ownedTenant(landlordId: string, id: string): Promise<TenantDoc> {
   return tenant;
 }
 
-export async function listTenants(landlordId: string, propertyId?: string): Promise<TenantDTO[]> {
+export async function listTenants(
+  landlordId: string,
+  propertyId?: string,
+  scopePropertyIds: string[] | null = null,
+): Promise<TenantDTO[]> {
   let tenantIds: Types.ObjectId[] | undefined;
+  // Caretaker scope: only tenants with an active lease on assigned properties.
+  if (scopePropertyIds) {
+    const leases = await Lease.find(
+      { landlordId, propertyId: { $in: scopePropertyIds }, status: 'active' },
+      { tenantId: 1 },
+    ).lean();
+    tenantIds = leases.map((l) => l.tenantId as Types.ObjectId);
+  }
   if (propertyId) {
     const leases = await Lease.find({ landlordId, propertyId, status: 'active' }, { tenantId: 1 }).lean();
-    tenantIds = leases.map((l) => l.tenantId as Types.ObjectId);
+    const ids = leases.map((l) => l.tenantId as Types.ObjectId);
+    tenantIds = tenantIds ? tenantIds.filter((t) => ids.some((i) => i.equals(t))) : ids;
   }
   const query: Record<string, unknown> = { landlordId, archivedAt: { $exists: false } };
   if (tenantIds) query._id = { $in: tenantIds };
