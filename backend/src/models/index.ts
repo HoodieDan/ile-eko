@@ -1,3 +1,13 @@
 export { User, type UserDoc } from './User';
 export { Session, type SessionDoc } from './Session';
 export { IdempotencyRecord, type IdempotencyDoc } from './IdempotencyRecord';
+export { Property, type PropertyDoc } from './Property';
+export { Unit, type UnitDoc } from './Unit';
+export { Listing, type ListingDoc } from './Listing';
+export { Tenant, type TenantDoc } from './Tenant';
+export { Lease, type LeaseDoc } from './Lease';
+export { RentObligation, type ObligationDoc } from './RentObligation';
+export { Payment, type PaymentDoc } from './Payment';
+export { PaymentAllocation, type AllocationDoc } from './PaymentAllocation';
+export { ActivityLog, type ActivityLogDoc } from './ActivityLog';
+export { OutboxEvent, EffectDelivery, type OutboxEventDoc, type EffectDeliveryDoc } from './OutboxEvent';

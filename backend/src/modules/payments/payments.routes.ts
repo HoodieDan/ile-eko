@@ -1,0 +1,59 @@
+import { Router } from 'express';
+import type { Request } from 'express';
+import { asyncHandler } from '../../utils/asyncHandler';
+import { authenticate } from '../../middleware/authenticate';
+import { requireRole } from '../../middleware/authorize';
+import { validate } from '../../middleware/validate';
+import { idempotent } from '../../middleware/idempotency';
+import { actorFrom, landlordScope } from '../../utils/http';
+import { AppError } from '../../utils/AppError';
+import { LogPaymentInput } from '../../contracts';
+import { Lease, Payment } from '../../models';
+import { logPayment, reversePayment } from '../../services/ledger';
+import { summaryNumbers } from '../../services/stats';
+import { presentPayment } from '../../presenters/entities';
+
+export const paymentsRouter: Router = Router();
+paymentsRouter.use(authenticate, requireRole('landlord', 'admin'));
+
+paymentsRouter.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const query: Record<string, unknown> = { landlordId: landlordScope(req) };
+    if (req.query.tenantId) query.tenantId = req.query.tenantId;
+    if (req.query.leaseId) query.leaseId = req.query.leaseId;
+    const payments = await Payment.find(query).sort({ paidAt: -1 }).limit(200);
+    res.json({ items: payments.map(presentPayment), total: payments.length });
+  }),
+);
+
+paymentsRouter.get(
+  '/summary',
+  asyncHandler(async (req, res) => {
+    res.json(await summaryNumbers(landlordScope(req)));
+  }),
+);
+
+paymentsRouter.post(
+  '/',
+  validate(LogPaymentInput),
+  idempotent('payment.log'),
+  asyncHandler(async (req: Request, res) => {
+    const lease = await Lease.findById(req.body.leaseId).lean();
+    if (!lease || String(lease.landlordId) !== landlordScope(req)) throw AppError.notFound('Lease not found');
+    const key = (req as Request & { idempotencyKey?: string }).idempotencyKey as string;
+    const payment = await logPayment(req.body, actorFrom(req), key);
+    res.status(201).json(presentPayment(payment));
+  }),
+);
+
+paymentsRouter.post(
+  '/:id/reverse',
+  idempotent('payment.reverse'),
+  asyncHandler(async (req, res) => {
+    const original = await Payment.findById(req.params.id).lean();
+    if (!original || String(original.landlordId) !== landlordScope(req)) throw AppError.notFound('Payment not found');
+    const reversal = await reversePayment(req.params.id as string, actorFrom(req));
+    res.status(201).json(presentPayment(reversal));
+  }),
+);
