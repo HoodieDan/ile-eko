@@ -1,16 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  Screen,
-  Text,
-  Chip,
-  Icon,
-  PropertyThumb,
-  EmptyState,
-  useToast,
-  colors,
-} from '@ile-eko/ui';
+import { Screen, Text, Chip, Icon, PropertyThumb, EmptyState, useToast, colors } from '@ile-eko/ui';
 import { listings, savedIds, naira, type Listing } from '@/data/mock';
 
 interface SaveHeartProps {
@@ -39,7 +30,13 @@ function SaveHeart({ on, onToggle }: SaveHeartProps): React.ReactElement {
         elevation: 3,
       }}
     >
-      <Icon name="heart" size={19} color={on ? colors.danger : colors.ink} fill={on} strokeWidth={2} />
+      <Icon
+        name="heart"
+        size={19}
+        color={on ? colors.danger : colors.ink}
+        fill={on}
+        strokeWidth={2}
+      />
     </Pressable>
   );
 }
@@ -120,7 +117,13 @@ function SavedCard({ listing, onOpen, onToggleSave }: SavedCardProps): React.Rea
   );
 }
 
-function Fact({ icon, value }: { icon: 'bed' | 'bath' | 'ruler'; value: string }): React.ReactElement {
+function Fact({
+  icon,
+  value,
+}: {
+  icon: 'bed' | 'bath' | 'ruler';
+  value: string;
+}): React.ReactElement {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
       <Icon name={icon} size={15} color={colors.muted} />
@@ -136,10 +139,7 @@ export default function Saved(): React.ReactElement {
   const { showToast } = useToast();
   const [saved, setSaved] = useState<Set<string>>(() => new Set(savedIds));
 
-  const savedListings = useMemo(
-    () => listings.filter((l) => saved.has(l.id)),
-    [saved],
-  );
+  const savedListings = useMemo(() => listings.filter((l) => saved.has(l.id)), [saved]);
 
   const unsave = (listing: Listing): void => {
     setSaved((prev) => {

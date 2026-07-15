@@ -12,7 +12,12 @@ export interface CheckboxProps {
 }
 
 /** 24×24 checkbox — checked = forest fill + white tick, empty = line border. */
-export function Checkbox({ checked, onChange, label, disabled = false }: CheckboxProps): React.ReactElement {
+export function Checkbox({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+}: CheckboxProps): React.ReactElement {
   return (
     <Pressable
       onPress={() => onChange?.(!checked)}

@@ -33,13 +33,21 @@ function VerdantTabBar({ state, navigation }: BottomTabBarProps): React.ReactEle
         if (!cfg) return null;
         const focused = state.index === i;
         const onPress = (): void => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
           if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
         };
 
         if (cfg.center) {
           return (
-            <Pressable key={route.key} onPress={onPress} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              style={{ flex: 1, alignItems: 'center', gap: 4 }}
+            >
               <View
                 style={{
                   width: 48,
@@ -61,9 +69,22 @@ function VerdantTabBar({ state, navigation }: BottomTabBarProps): React.ReactEle
         }
 
         return (
-          <Pressable key={route.key} onPress={onPress} style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 6 }}>
-            <Icon name={cfg.icon} size={24} color={focused ? colors.primary : colors.muted} strokeWidth={focused ? 2.2 : 1.9} />
-            <Text variant="captionStrong" color={focused ? colors.primary : colors.muted} style={{ fontSize: 10.5 }}>
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 6 }}
+          >
+            <Icon
+              name={cfg.icon}
+              size={24}
+              color={focused ? colors.primary : colors.muted}
+              strokeWidth={focused ? 2.2 : 1.9}
+            />
+            <Text
+              variant="captionStrong"
+              color={focused ? colors.primary : colors.muted}
+              style={{ fontSize: 10.5 }}
+            >
               {cfg.label}
             </Text>
           </Pressable>

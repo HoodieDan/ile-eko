@@ -12,11 +12,26 @@ export interface MeterProps {
 }
 
 /** Slim progress meter / bar. */
-export function Meter({ value, color = colors.primary, track = colors.surface2, height = 12, style }: MeterProps): React.ReactElement {
+export function Meter({
+  value,
+  color = colors.primary,
+  track = colors.surface2,
+  height = 12,
+  style,
+}: MeterProps): React.ReactElement {
   const pct = Math.max(0, Math.min(1, value));
   return (
-    <View style={[{ height, borderRadius: 999, backgroundColor: track, overflow: 'hidden' }, style]}>
-      <View style={{ width: `${pct * 100}%`, height: '100%', backgroundColor: color, borderRadius: 999 }} />
+    <View
+      style={[{ height, borderRadius: 999, backgroundColor: track, overflow: 'hidden' }, style]}
+    >
+      <View
+        style={{
+          width: `${pct * 100}%`,
+          height: '100%',
+          backgroundColor: color,
+          borderRadius: 999,
+        }}
+      />
     </View>
   );
 }

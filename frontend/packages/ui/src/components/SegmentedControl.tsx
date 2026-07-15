@@ -25,7 +25,13 @@ export function SegmentedControl<T extends string = string>({
   return (
     <View
       style={[
-        { flexDirection: 'row', backgroundColor: colors.surface2, borderRadius: 13, padding: 4, gap: 4 },
+        {
+          flexDirection: 'row',
+          backgroundColor: colors.surface2,
+          borderRadius: 13,
+          padding: 4,
+          gap: 4,
+        },
         style,
       ]}
     >
@@ -55,7 +61,11 @@ export function SegmentedControl<T extends string = string>({
                 : null,
             ]}
           >
-            <Text variant="captionStrong" color={on ? colors.ink : colors.muted} style={{ fontSize: 13 }}>
+            <Text
+              variant="captionStrong"
+              color={on ? colors.ink : colors.muted}
+              style={{ fontSize: 13 }}
+            >
               {opt.label}
             </Text>
           </Pressable>

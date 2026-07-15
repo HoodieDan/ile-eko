@@ -9,7 +9,17 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { AILabel, Button, Icon, Logo, Screen, Text, colors, radii, type IconName } from '@ile-eko/ui';
+import {
+  AILabel,
+  Button,
+  Icon,
+  Logo,
+  Screen,
+  Text,
+  colors,
+  radii,
+  type IconName,
+} from '@ile-eko/ui';
 
 interface Slide {
   icon: IconName;
@@ -67,10 +77,20 @@ export default function Onboarding(): React.ReactElement {
     <Screen>
       {/* Header */}
       <View
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 4 }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingTop: 4,
+        }}
       >
         <Logo size={30} />
-        <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }}>
+        <Pressable
+          onPress={() => router.push('/(auth)/login')}
+          hitSlop={8}
+          style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }}
+        >
           <Text variant="bodyStrong" color={colors.muted}>
             Skip
           </Text>
@@ -125,7 +145,11 @@ export default function Onboarding(): React.ReactElement {
               <Text variant="h1" style={{ marginTop: s.ai ? 10 : 0 }}>
                 {s.title}
               </Text>
-              <Text variant="body" color={colors.muted} style={{ marginTop: 12, fontSize: 15.5, lineHeight: 24 }}>
+              <Text
+                variant="body"
+                color={colors.muted}
+                style={{ marginTop: 12, fontSize: 15.5, lineHeight: 24 }}
+              >
                 {s.body}
               </Text>
             </View>
@@ -139,7 +163,12 @@ export default function Onboarding(): React.ReactElement {
           {SLIDES.map((s, k) => (
             <View
               key={s.title}
-              style={{ height: 7, borderRadius: 999, width: k === i ? 26 : 7, backgroundColor: k === i ? colors.primary : colors.line }}
+              style={{
+                height: 7,
+                borderRadius: 999,
+                width: k === i ? 26 : 7,
+                backgroundColor: k === i ? colors.primary : colors.line,
+              }}
             />
           ))}
         </View>

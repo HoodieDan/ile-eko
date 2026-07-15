@@ -13,7 +13,16 @@ import {
   colors,
   useToast,
 } from '@ile-eko/ui';
-import { listings, naira, nairaShort, areas, AM, savedIds, type AmenityKey, type Listing } from '@/data/mock';
+import {
+  listings,
+  naira,
+  nairaShort,
+  areas,
+  AM,
+  savedIds,
+  type AmenityKey,
+  type Listing,
+} from '@/data/mock';
 
 /** Parsed natural-language filters. */
 interface ParsedFilters {
@@ -102,7 +111,13 @@ function ListingCard({
             elevation: 3,
           }}
         >
-          <Icon name="heart" size={19} color={saved ? colors.danger : colors.ink} fill={saved} strokeWidth={2} />
+          <Icon
+            name="heart"
+            size={19}
+            color={saved ? colors.danger : colors.ink}
+            fill={saved}
+            strokeWidth={2}
+          />
         </Pressable>
       </View>
 
@@ -159,7 +174,13 @@ function ListingCard({
 }
 
 /** Dismissible interpreted-filter pill (iris/AI tone). */
-function FilterPill({ label, onClear }: { label: string; onClear: () => void }): React.ReactElement {
+function FilterPill({
+  label,
+  onClear,
+}: {
+  label: string;
+  onClear: () => void;
+}): React.ReactElement {
   return (
     <Pressable
       onPress={onClear}
@@ -242,7 +263,15 @@ export default function Search(): React.ReactElement {
   return (
     <Screen bottomSpace={120}>
       {/* Search header row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 4 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingHorizontal: 20,
+          paddingTop: 4,
+        }}
+      >
         <IconButton name="back" variant="ghost" onPress={() => router.back()} />
         <View
           style={{

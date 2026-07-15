@@ -51,7 +51,11 @@ export function Select<T extends string = string>({
           paddingHorizontal: 16,
         }}
       >
-        <Text variant="body" color={current ? colors.ink : 'rgba(90,106,98,0.65)'} style={{ flex: 1, fontSize: 15.5 }}>
+        <Text
+          variant="body"
+          color={current ? colors.ink : 'rgba(90,106,98,0.65)'}
+          style={{ flex: 1, fontSize: 15.5 }}
+        >
           {current?.label ?? placeholder}
         </Text>
         <Icon name="fwd" size={18} color={colors.muted} />
@@ -73,7 +77,16 @@ export function Select<T extends string = string>({
               paddingHorizontal: 20,
             }}
           >
-            <View style={{ width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line, alignSelf: 'center', marginBottom: 14 }} />
+            <View
+              style={{
+                width: 40,
+                height: 5,
+                borderRadius: 999,
+                backgroundColor: colors.line,
+                alignSelf: 'center',
+                marginBottom: 14,
+              }}
+            />
             {label ? (
               <Text variant="title" style={{ marginBottom: 8 }}>
                 {label}
@@ -97,10 +110,15 @@ export function Select<T extends string = string>({
                     borderBottomColor: colors.line,
                   }}
                 >
-                  <Text variant={on ? 'bodyStrong' : 'body'} color={on ? colors.primary : colors.ink}>
+                  <Text
+                    variant={on ? 'bodyStrong' : 'body'}
+                    color={on ? colors.primary : colors.ink}
+                  >
                     {opt.label}
                   </Text>
-                  {on ? <Icon name="check" size={18} color={colors.primary} strokeWidth={2.4} /> : null}
+                  {on ? (
+                    <Icon name="check" size={18} color={colors.primary} strokeWidth={2.4} />
+                  ) : null}
                 </Pressable>
               );
             })}

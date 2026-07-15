@@ -15,17 +15,37 @@ export interface AppBarProps {
 }
 
 /** Top app bar — optional back, title/subtitle, trailing action slot. */
-export function AppBar({ title, subtitle, onBack, right, onDark = false, style }: AppBarProps): React.ReactElement {
+export function AppBar({
+  title,
+  subtitle,
+  onBack,
+  right,
+  onDark = false,
+  style,
+}: AppBarProps): React.ReactElement {
   const fg = onDark ? '#FFFFFF' : colors.ink;
   return (
     <View
       style={[
-        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 56 },
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          minHeight: 56,
+        },
         style,
       ]}
     >
       {onBack ? (
-        <IconButton name="back" variant="ghost" onPress={onBack} color={fg} style={{ marginLeft: -10 }} />
+        <IconButton
+          name="back"
+          variant="ghost"
+          onPress={onBack}
+          color={fg}
+          style={{ marginLeft: -10 }}
+        />
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         {title ? (
@@ -34,7 +54,11 @@ export function AppBar({ title, subtitle, onBack, right, onDark = false, style }
           </Text>
         ) : null}
         {subtitle ? (
-          <Text variant="caption" color={onDark ? 'rgba(255,255,255,0.7)' : colors.muted} numberOfLines={1}>
+          <Text
+            variant="caption"
+            color={onDark ? 'rgba(255,255,255,0.7)' : colors.muted}
+            numberOfLines={1}
+          >
             {subtitle}
           </Text>
         ) : null}

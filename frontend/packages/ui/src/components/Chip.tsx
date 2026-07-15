@@ -33,7 +33,13 @@ export interface ChipProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Chip({ label, tone = 'neutral', icon, solid = false, style }: ChipProps): React.ReactElement {
+export function Chip({
+  label,
+  tone = 'neutral',
+  icon,
+  solid = false,
+  style,
+}: ChipProps): React.ReactElement {
   const t = toneStyle(tone);
   const bg = solid ? t.fg : t.bg;
   const fg = solid ? '#FFFFFF' : t.fg;
@@ -53,7 +59,9 @@ export function Chip({ label, tone = 'neutral', icon, solid = false, style }: Ch
         style,
       ]}
     >
-      {icon ? <Icon name={icon} size={13} color={fg} strokeWidth={2.2} fill={icon === 'spark'} /> : null}
+      {icon ? (
+        <Icon name={icon} size={13} color={fg} strokeWidth={2.2} fill={icon === 'spark'} />
+      ) : null}
       <Text variant="captionStrong" color={fg} style={{ lineHeight: 13 }}>
         {label}
       </Text>
@@ -72,7 +80,10 @@ export type StatusKind =
   | 'overdue'
   | 'vacant';
 
-const STATUS_MAP: Record<StatusKind, { tone: ChipTone; icon: IconName; label: (days?: number) => string }> = {
+const STATUS_MAP: Record<
+  StatusKind,
+  { tone: ChipTone; icon: IconName; label: (days?: number) => string }
+> = {
   paid: { tone: 'ok', icon: 'check', label: () => 'Paid' },
   confirmed: { tone: 'ok', icon: 'checkCircle', label: () => 'Confirmed' },
   occupied: { tone: 'ok', icon: 'check', label: () => 'Occupied' },
@@ -80,7 +91,11 @@ const STATUS_MAP: Record<StatusKind, { tone: ChipTone; icon: IconName; label: (d
   pending: { tone: 'warn', icon: 'clock', label: () => 'Pending' },
   partial: { tone: 'info', icon: 'half', label: () => 'Partial' },
   mixed: { tone: 'info', icon: 'layers', label: () => 'Mixed' },
-  overdue: { tone: 'danger', icon: 'alert', label: (d) => (d != null ? `${d}d overdue` : 'Overdue') },
+  overdue: {
+    tone: 'danger',
+    icon: 'alert',
+    label: (d) => (d != null ? `${d}d overdue` : 'Overdue'),
+  },
   vacant: { tone: 'neutral', icon: 'door', label: () => 'Vacant' },
 };
 

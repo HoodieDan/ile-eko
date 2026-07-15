@@ -55,7 +55,11 @@ export default function EnquiryDetail(): React.ReactElement | null {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: 120 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.md,
+          paddingBottom: 120,
+        }}
       >
         {/* Tenant header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -131,7 +135,14 @@ export default function EnquiryDetail(): React.ReactElement | null {
 
         {/* Quick replies */}
         {sent.length === 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: spacing.sm,
+              marginTop: spacing.lg,
+            }}
+          >
             {QUICK_REPLIES.map((q) => (
               <Pressable
                 key={q}

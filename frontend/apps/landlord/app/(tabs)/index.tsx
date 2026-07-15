@@ -136,7 +136,13 @@ export default function Dashboard(): React.ReactElement {
 
           {/* collection summary */}
           <View style={{ marginTop: 28 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+              }}
+            >
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text variant="label" color="rgba(255,255,255,0.78)">
                   Collected this cycle
@@ -170,11 +176,15 @@ export default function Dashboard(): React.ReactElement {
                 backgroundColor: 'rgba(255,255,255,0.18)',
               }}
             >
-              <View style={{ width: `${segPct(summary.collected)}%`, backgroundColor: '#FFFFFF' }} />
+              <View
+                style={{ width: `${segPct(summary.collected)}%`, backgroundColor: '#FFFFFF' }}
+              />
               <View
                 style={{ width: `${segPct(summary.overdueAmt)}%`, backgroundColor: colors.danger }}
               />
-              <View style={{ width: `${segPct(summary.dueAmt)}%`, backgroundColor: colors.accent }} />
+              <View
+                style={{ width: `${segPct(summary.dueAmt)}%`, backgroundColor: colors.accent }}
+              />
               <View
                 style={{
                   width: `${segPct(summary.vacantAmt)}%`,
@@ -186,7 +196,10 @@ export default function Dashboard(): React.ReactElement {
               <Legend color="#FFFFFF" label={`Paid ${nairaShort(summary.collected)}`} />
               <Legend color={colors.danger} label={`Overdue ${nairaShort(summary.overdueAmt)}`} />
               <Legend color={colors.accent} label={`Due ${nairaShort(summary.dueAmt)}`} />
-              <Legend color="rgba(255,255,255,0.45)" label={`Vacant ${nairaShort(summary.vacantAmt)}`} />
+              <Legend
+                color="rgba(255,255,255,0.45)"
+                label={`Vacant ${nairaShort(summary.vacantAmt)}`}
+              />
             </View>
           </View>
         </LinearGradient>
@@ -301,7 +314,11 @@ export default function Dashboard(): React.ReactElement {
                   <View style={{ alignItems: 'flex-end' }}>
                     <StatusChip status={status} days={days ?? undefined} />
                     {!overdue && !due && p.lease?.nextDue ? (
-                      <Text variant="caption" color={colors.muted} style={{ fontSize: 11, marginTop: 5 }}>
+                      <Text
+                        variant="caption"
+                        color={colors.muted}
+                        style={{ fontSize: 11, marginTop: 5 }}
+                      >
                         {p.lease.nextDue}
                       </Text>
                     ) : null}
@@ -429,10 +446,19 @@ export default function Dashboard(): React.ReactElement {
                 >
                   <PropertyThumb size={64} radius={13} />
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text variant="title" numberOfLines={1} style={{ fontSize: 15.5, lineHeight: 19 }}>
+                    <Text
+                      variant="title"
+                      numberOfLines={1}
+                      style={{ fontSize: 15.5, lineHeight: 19 }}
+                    >
                       {p.address}
                     </Text>
-                    <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 2 }}>
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      numberOfLines={1}
+                      style={{ marginTop: 2 }}
+                    >
                       {p.area} · {p.type}
                     </Text>
                     <View
@@ -493,14 +519,22 @@ export default function Dashboard(): React.ReactElement {
                     <Text variant="captionStrong" style={{ fontSize: 12.5 }}>
                       {firstName}
                     </Text>
-                    <Text variant="caption" color={colors.muted} style={{ marginLeft: 'auto', fontSize: 11 }}>
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      style={{ marginLeft: 'auto', fontSize: 11 }}
+                    >
                       {a.ago}
                     </Text>
                   </View>
                   <Text variant="bodyStrong" style={{ fontSize: 13.5, marginTop: 11 }}>
                     {a.action}
                   </Text>
-                  <Text variant="caption" color={colors.muted} style={{ marginTop: 3, lineHeight: 17 }}>
+                  <Text
+                    variant="caption"
+                    color={colors.muted}
+                    style={{ marginTop: 3, lineHeight: 17 }}
+                  >
                     {a.detail}
                   </Text>
                 </Card>

@@ -48,7 +48,13 @@ export function Card({
 }
 
 /** Iris "AI insight" label: filled sparkle + uppercase tracking. */
-export function AILabel({ children = 'AI', color = colors.aiDeep }: { children?: React.ReactNode; color?: string }): React.ReactElement {
+export function AILabel({
+  children = 'AI',
+  color = colors.aiDeep,
+}: {
+  children?: React.ReactNode;
+  color?: string;
+}): React.ReactElement {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <Icon name="spark" size={13} color={color} fill />
@@ -67,7 +73,12 @@ export interface AICardProps {
 }
 
 /** AI surface — iris tint fill with a hairline iris ring. AI only. */
-export function AICard({ children, padding = 16, style, onPress }: AICardProps): React.ReactElement {
+export function AICard({
+  children,
+  padding = 16,
+  style,
+  onPress,
+}: AICardProps): React.ReactElement {
   const base: StyleProp<ViewStyle> = [
     {
       backgroundColor: colors.aiTint,
@@ -80,7 +91,10 @@ export function AICard({ children, padding = 16, style, onPress }: AICardProps):
   ];
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [base, { transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [base, { transform: [{ scale: pressed ? 0.985 : 1 }] }]}
+      >
         {children}
       </Pressable>
     );

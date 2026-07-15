@@ -48,7 +48,9 @@ export default function Profile(): React.ReactElement {
   const [budget, setBudget] = useState<string>('₦600k–₦1.2M');
   const [areaSet, setAreaSet] = useState<Set<string>>(new Set(profile.areas));
   const isValidSize = SIZE_OPTIONS.some((o) => o.value === profile.size);
-  const [size, setSize] = useState<SizeValue>(isValidSize ? (profile.size as SizeValue) : 'Any size');
+  const [size, setSize] = useState<SizeValue>(
+    isValidSize ? (profile.size as SizeValue) : 'Any size',
+  );
 
   const toggleArea = (a: string): void => {
     setAreaSet((prev) => {

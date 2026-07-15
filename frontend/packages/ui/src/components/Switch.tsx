@@ -9,7 +9,11 @@ export interface SwitchProps {
 }
 
 /** Pill toggle — on = forest green, off = line. 50×30. */
-export function Switch({ value, onValueChange, disabled = false }: SwitchProps): React.ReactElement {
+export function Switch({
+  value,
+  onValueChange,
+  disabled = false,
+}: SwitchProps): React.ReactElement {
   const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
   useEffect(() => {
     Animated.timing(anim, { toValue: value ? 1 : 0, duration: 180, useNativeDriver: true }).start();

@@ -57,7 +57,11 @@ export default function Enquire(): React.ReactElement | null {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: 140 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.sm,
+          paddingBottom: 140,
+        }}
       >
         {/* Listing summary */}
         <Card flat style={{ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10 }}>
@@ -85,7 +89,9 @@ export default function Enquire(): React.ReactElement | null {
         </View>
 
         {/* Quick replies */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
+        <View
+          style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}
+        >
           {QUICK_REPLIES.map((q) => (
             <Pressable
               key={q}
@@ -109,7 +115,12 @@ export default function Enquire(): React.ReactElement | null {
           ))}
         </View>
 
-        <Text variant="caption" color={colors.muted} center style={{ marginTop: spacing.lg, lineHeight: 18 }}>
+        <Text
+          variant="caption"
+          color={colors.muted}
+          center
+          style={{ marginTop: spacing.lg, lineHeight: 18 }}
+        >
           Ilé Èkó never charges agent fees. You deal directly with the landlord.
         </Text>
       </ScrollView>

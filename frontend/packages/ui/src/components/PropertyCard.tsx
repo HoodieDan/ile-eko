@@ -48,7 +48,11 @@ export function PropertyThumb({
       <Icon name="building" size={glyph} color="rgba(255,255,255,0.18)" strokeWidth={1.6} />
       {tag ? (
         <View style={{ position: 'absolute', left: 10, bottom: 10 }}>
-          <Text variant="label" color="rgba(255,255,255,0.7)" style={{ fontSize: 9.5, letterSpacing: 0.8 }}>
+          <Text
+            variant="label"
+            color="rgba(255,255,255,0.7)"
+            style={{ fontSize: 9.5, letterSpacing: 0.8 }}
+          >
             {tag}
           </Text>
         </View>
@@ -83,7 +87,12 @@ export function PropertyCard({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        { backgroundColor: colors.surface, borderRadius: 18, overflow: 'hidden', transform: [{ scale: pressed ? 0.985 : 1 }] },
+        {
+          backgroundColor: colors.surface,
+          borderRadius: 18,
+          overflow: 'hidden',
+          transform: [{ scale: pressed ? 0.985 : 1 }],
+        },
         elevation.e1,
         style,
       ]}
@@ -96,7 +105,14 @@ export function PropertyCard({
         <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 2 }}>
           {meta}
         </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 11 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 11,
+          }}
+        >
           <Text variant="bodyStrong">
             {rent}
             <Text variant="caption" color={colors.muted}>

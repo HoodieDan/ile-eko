@@ -128,15 +128,30 @@ export default function AITab(): React.ReactElement {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ marginHorizontal: -20 }}
-          contentContainerStyle={{ paddingHorizontal: 20, gap: spacing.md, paddingBottom: spacing.xs }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            gap: spacing.md,
+            paddingBottom: spacing.xs,
+          }}
         >
           {briefs.map((b) => (
             <AICard key={b.label} onPress={b.onTap} style={{ width: 212 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 <AILabel>{b.label}</AILabel>
                 {b.warn ? (
                   <View
-                    style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: colors.danger }}
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      backgroundColor: colors.danger,
+                    }}
                   />
                 ) : null}
               </View>
@@ -212,7 +227,12 @@ export default function AITab(): React.ReactElement {
                 {[0, 1, 2].map((d) => (
                   <View
                     key={d}
-                    style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: colors.aiDeep }}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      backgroundColor: colors.aiDeep,
+                    }}
                   />
                 ))}
               </View>
@@ -221,7 +241,9 @@ export default function AITab(): React.ReactElement {
         </ScrollView>
 
         {/* Suggested-prompt pills */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
+        <View
+          style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}
+        >
           {PROMPTS.map((p) => (
             <Pressable
               key={p}

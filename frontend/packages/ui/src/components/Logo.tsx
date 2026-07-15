@@ -16,7 +16,12 @@ export interface LogoMarkProps {
  * the bottom and a brass dot top-right — a stylised house. Reproduced from the
  * design's CSS `.mk` element.
  */
-export function LogoMark({ size = 38, onDark = false, notch, style }: LogoMarkProps): React.ReactElement {
+export function LogoMark({
+  size = 38,
+  onDark = false,
+  notch,
+  style,
+}: LogoMarkProps): React.ReactElement {
   const radius = size * 0.29;
   const notchW = size * 0.42;
   const notchH = size * 0.58;
@@ -25,7 +30,13 @@ export function LogoMark({ size = 38, onDark = false, notch, style }: LogoMarkPr
   return (
     <View
       style={[
-        { width: size, height: size, borderRadius: radius, backgroundColor: colors.primary, overflow: 'hidden' },
+        {
+          width: size,
+          height: size,
+          borderRadius: radius,
+          backgroundColor: colors.primary,
+          overflow: 'hidden',
+        },
         style,
       ]}
     >
@@ -64,12 +75,21 @@ export interface LogoProps {
 }
 
 /** Full lockup: mark + "Ilé Èkó" wordmark. */
-export function Logo({ size = 38, showText = true, onDark = false, notch }: LogoProps): React.ReactElement {
+export function Logo({
+  size = 38,
+  showText = true,
+  onDark = false,
+  notch,
+}: LogoProps): React.ReactElement {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
       <LogoMark size={size} onDark={onDark} notch={notch} />
       {showText ? (
-        <Text variant="h2" color={onDark ? '#FFFFFF' : colors.ink} style={{ fontSize: size * 0.56 }}>
+        <Text
+          variant="h2"
+          color={onDark ? '#FFFFFF' : colors.ink}
+          style={{ fontSize: size * 0.56 }}
+        >
           Ilé Èkó
         </Text>
       ) : null}

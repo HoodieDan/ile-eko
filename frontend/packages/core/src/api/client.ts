@@ -37,8 +37,7 @@ function buildUrl(baseUrl: string, path: string, query?: RequestOptions['query']
 }
 
 export function createApiClient({ baseUrl }: ApiClientOptions = {}) {
-  const resolvedBase =
-    baseUrl ?? process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_BASE_URL;
+  const resolvedBase = baseUrl ?? process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_BASE_URL;
 
   async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const { method = 'GET', body, query, signal } = options;

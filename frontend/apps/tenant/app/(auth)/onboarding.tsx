@@ -9,7 +9,17 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { AILabel, Button, Icon, Logo, Screen, Text, colors, withAlpha, type IconName } from '@ile-eko/ui';
+import {
+  AILabel,
+  Button,
+  Icon,
+  Logo,
+  Screen,
+  Text,
+  colors,
+  withAlpha,
+  type IconName,
+} from '@ile-eko/ui';
 
 interface Slide {
   icon: IconName;
@@ -60,7 +70,13 @@ export default function Onboarding(): React.ReactElement {
   return (
     <Screen>
       <View
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 4 }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingTop: 4,
+        }}
       >
         <Logo size={28} />
         <Pressable
@@ -88,49 +104,53 @@ export default function Onboarding(): React.ReactElement {
             ? [colors.aiTint, colors.surface]
             : [colors.primaryTint, colors.surface];
           return (
-          <View key={s.title} style={{ width, justifyContent: 'center', paddingHorizontal: 20 }}>
-            <LinearGradient
-              colors={art}
-              start={{ x: 0.1, y: 0 }}
-              end={{ x: 0.9, y: 1 }}
-              style={{
-                height: 300,
-                borderRadius: 26,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: withAlpha(tile, 0.22),
-              }}
-            >
-              <View
+            <View key={s.title} style={{ width, justifyContent: 'center', paddingHorizontal: 20 }}>
+              <LinearGradient
+                colors={art}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
                 style={{
-                  width: 116,
-                  height: 116,
-                  borderRadius: 34,
+                  height: 300,
+                  borderRadius: 26,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: tile,
-                  shadowColor: tile,
-                  shadowOffset: { width: 0, height: 18 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 24,
-                  elevation: 8,
+                  borderWidth: 1,
+                  borderColor: withAlpha(tile, 0.22),
                 }}
               >
-                <Icon name={s.icon} size={54} color="#FFFFFF" strokeWidth={1.7} fill={s.ai} />
-              </View>
-            </LinearGradient>
+                <View
+                  style={{
+                    width: 116,
+                    height: 116,
+                    borderRadius: 34,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: tile,
+                    shadowColor: tile,
+                    shadowOffset: { width: 0, height: 18 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 24,
+                    elevation: 8,
+                  }}
+                >
+                  <Icon name={s.icon} size={54} color="#FFFFFF" strokeWidth={1.7} fill={s.ai} />
+                </View>
+              </LinearGradient>
 
-            <View style={{ marginTop: 30 }}>
-              {s.ai ? <AILabel>{s.aiLabel ?? 'AI'}</AILabel> : null}
-              <Text variant="h1" style={{ marginTop: s.ai ? 10 : 0 }}>
-                {s.title}
-              </Text>
-              <Text variant="body" color={colors.muted} style={{ marginTop: 12, fontSize: 15.5, lineHeight: 24 }}>
-                {s.body}
-              </Text>
+              <View style={{ marginTop: 30 }}>
+                {s.ai ? <AILabel>{s.aiLabel ?? 'AI'}</AILabel> : null}
+                <Text variant="h1" style={{ marginTop: s.ai ? 10 : 0 }}>
+                  {s.title}
+                </Text>
+                <Text
+                  variant="body"
+                  color={colors.muted}
+                  style={{ marginTop: 12, fontSize: 15.5, lineHeight: 24 }}
+                >
+                  {s.body}
+                </Text>
+              </View>
             </View>
-          </View>
           );
         })}
       </ScrollView>
@@ -140,7 +160,12 @@ export default function Onboarding(): React.ReactElement {
           {SLIDES.map((s, k) => (
             <View
               key={s.title}
-              style={{ height: 7, borderRadius: 999, width: k === i ? 26 : 7, backgroundColor: k === i ? colors.primary : colors.line }}
+              style={{
+                height: 7,
+                borderRadius: 999,
+                width: k === i ? 26 : 7,
+                backgroundColor: k === i ? colors.primary : colors.line,
+              }}
             />
           ))}
         </View>

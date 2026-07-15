@@ -60,7 +60,10 @@ export function ListRow({
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [base, { transform: [{ scale: pressed ? 0.985 : 1 }] }]}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [base, { transform: [{ scale: pressed ? 0.985 : 1 }] }]}
+      >
         {body}
       </Pressable>
     );

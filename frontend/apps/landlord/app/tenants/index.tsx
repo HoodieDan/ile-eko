@@ -124,14 +124,14 @@ export default function TenantsScreen(): React.ReactElement {
                   <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
                     {t.name}
                   </Text>
-                  <Chip
-                    label={t.risk.level}
-                    tone="ai"
-                    icon="spark"
-                    style={{ flexShrink: 0 }}
-                  />
+                  <Chip label={t.risk.level} tone="ai" icon="spark" style={{ flexShrink: 0 }} />
                 </View>
-                <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 2 }}>
+                <Text
+                  variant="caption"
+                  color={colors.muted}
+                  numberOfLines={1}
+                  style={{ marginTop: 2 }}
+                >
                   {t.area}
                   {t.unit ? ` · ${t.unit}` : ''} · ends {leaseEndShort(t.leaseEnd)}
                 </Text>

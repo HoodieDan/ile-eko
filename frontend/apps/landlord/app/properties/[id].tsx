@@ -185,7 +185,9 @@ function MarketplaceCard({
               {listed ? 'Listed on marketplace' : 'Not listed'}
             </Text>
             <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }} numberOfLines={1}>
-              {listed ? `Published ${base.since} · tenant app` : 'Publish to start receiving enquiries'}
+              {listed
+                ? `Published ${base.since} · tenant app`
+                : 'Publish to start receiving enquiries'}
             </Text>
           </View>
         </View>
@@ -195,7 +197,17 @@ function MarketplaceCard({
       {listed ? (
         <>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.lg }}>
-            <Card flat padding={0} style={{ flex: 1, backgroundColor: colors.surface2, borderWidth: 0, paddingVertical: 11, paddingHorizontal: 13 }}>
+            <Card
+              flat
+              padding={0}
+              style={{
+                flex: 1,
+                backgroundColor: colors.surface2,
+                borderWidth: 0,
+                paddingVertical: 11,
+                paddingHorizontal: 13,
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="eye" size={14} color={colors.muted} />
                 <Eyebrow>Views</Eyebrow>
@@ -204,7 +216,17 @@ function MarketplaceCard({
                 {base.views}
               </Text>
             </Card>
-            <Card flat padding={0} style={{ flex: 1, backgroundColor: colors.surface2, borderWidth: 0, paddingVertical: 11, paddingHorizontal: 13 }}>
+            <Card
+              flat
+              padding={0}
+              style={{
+                flex: 1,
+                backgroundColor: colors.surface2,
+                borderWidth: 0,
+                paddingVertical: 11,
+                paddingHorizontal: 13,
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="message" size={14} color={colors.muted} />
                 <Eyebrow>Enquiries</Eyebrow>
@@ -271,12 +293,15 @@ export default function PropertyDetail(): React.ReactElement | null {
         { value: 'activity', label: 'Activity' },
       ];
 
-  const activity: { action: string; when: string; icon: IconName }[] =
-    p.activity?.map((a) => ({ action: a.action, when: a.when, icon: a.icon as IconName })) ?? [
-      { action: 'Rent payment confirmed', when: tenant?.leaseStart ?? 'Recently', icon: 'wallet' },
-      { action: 'Lease agreement uploaded', when: tenant?.leaseStart ?? '—', icon: 'doc' },
-      { action: 'Property added to portfolio', when: 'Earlier', icon: 'building' },
-    ];
+  const activity: { action: string; when: string; icon: IconName }[] = p.activity?.map((a) => ({
+    action: a.action,
+    when: a.when,
+    icon: a.icon as IconName,
+  })) ?? [
+    { action: 'Rent payment confirmed', when: tenant?.leaseStart ?? 'Recently', icon: 'wallet' },
+    { action: 'Lease agreement uploaded', when: tenant?.leaseStart ?? '—', icon: 'doc' },
+    { action: 'Property added to portfolio', when: 'Earlier', icon: 'building' },
+  ];
 
   const openLog = (): void => {
     setLogAmount(naira(p.rent));
@@ -309,13 +334,22 @@ export default function PropertyDetail(): React.ReactElement | null {
           colors={HERO_GRADIENT}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ height: 230 + insets.top, paddingTop: insets.top, justifyContent: 'space-between' }}
+          style={{
+            height: 230 + insets.top,
+            paddingTop: insets.top,
+            justifyContent: 'space-between',
+          }}
         >
           <AppBar
             onDark
             onBack={() => router.back()}
             right={
-              <IconButton name="settings" variant="ghost" color="#FFFFFF" onPress={() => router.push('/properties/add')} />
+              <IconButton
+                name="settings"
+                variant="ghost"
+                color="#FFFFFF"
+                onPress={() => router.push('/properties/add')}
+              />
             }
           />
           <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center' }}>
@@ -392,7 +426,13 @@ export default function PropertyDetail(): React.ReactElement | null {
           <Card
             flat
             padding={13}
-            style={{ backgroundColor: colors.surface2, borderWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+            style={{
+              backgroundColor: colors.surface2,
+              borderWidth: 0,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+            }}
           >
             <Avatar initials={tenant?.initials ?? p.tenant?.initials ?? '—'} size={40} />
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -406,7 +446,11 @@ export default function PropertyDetail(): React.ReactElement | null {
           </Card>
 
           <View style={{ marginTop: spacing.lg }}>
-            <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13, marginBottom: 7 }}>
+            <Text
+              variant="captionStrong"
+              color={colors.ink}
+              style={{ fontSize: 13, marginBottom: 7 }}
+            >
               Amount received
             </Text>
             <View
@@ -485,289 +529,326 @@ function Body({
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: 12 }}
+      contentContainerStyle={{
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xl,
+        paddingBottom: 12,
+      }}
     >
-        {/* Title + address */}
-        <View>
-          <Text variant="title" style={{ fontSize: 24, lineHeight: 27 }}>
-            {p.address}
-          </Text>
-          <Text variant="body" color={colors.muted} style={{ marginTop: 4 }}>
-            {p.area} · {p.lga ?? 'Lagos'}, Lagos
+      {/* Title + address */}
+      <View>
+        <Text variant="title" style={{ fontSize: 24, lineHeight: 27 }}>
+          {p.address}
+        </Text>
+        <Text variant="body" color={colors.muted} style={{ marginTop: 4 }}>
+          {p.area} · {p.lga ?? 'Lagos'}, Lagos
+        </Text>
+      </View>
+
+      {/* Key facts */}
+      <Card padding={14} style={{ marginTop: spacing.lg }}>
+        <View style={{ flexDirection: 'row' }}>
+          <KeyFact icon="home" label="Type" value={multi ? `${p.unitCount ?? 0} units` : p.type} />
+          <KeyFact icon="grid" label="Area" value={p.area} bordered />
+          <KeyFact
+            icon="wallet"
+            label={multi ? 'Total roll' : 'Annual rent'}
+            value={nairaShort(p.rent)}
+          />
+        </View>
+      </Card>
+
+      {/* AI suggested rent */}
+      <AICard
+        padding={13}
+        onPress={onListUnit}
+        style={{
+          marginTop: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+        }}
+      >
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 11,
+            backgroundColor: colors.ai,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="spark" size={19} color={colors.onAi} fill />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <AILabel>Smart pricing</AILabel>
+          <Text variant="bodyStrong" style={{ fontSize: 14.5, marginTop: 2 }} numberOfLines={1}>
+            Suggested rent: {naira(p.aiPrice)}
+            {multi ? ' / vacant unit' : ''}
           </Text>
         </View>
+        <Chip tone="ai" solid icon="trend" label={`+${p.aiDelta}%`} />
+      </AICard>
 
-        {/* Key facts */}
-        <Card padding={14} style={{ marginTop: spacing.lg }}>
-          <View style={{ flexDirection: 'row' }}>
-            <KeyFact icon="home" label="Type" value={multi ? `${p.unitCount ?? 0} units` : p.type} />
-            <KeyFact icon="grid" label="Area" value={p.area} bordered />
-            <KeyFact icon="wallet" label={multi ? 'Total roll' : 'Annual rent'} value={nairaShort(p.rent)} />
-          </View>
-        </Card>
+      {/* Marketplace listing status (vacant / has vacancy) */}
+      {(occupancy === 'vacant' || occupancy === 'mixed') && (
+        <View style={{ marginTop: spacing.md }}>
+          <MarketplaceCard property={p} listing={listing} onOpenEnquiries={onEnquiries} />
+        </View>
+      )}
 
-        {/* AI suggested rent */}
-        <AICard
-          padding={13}
-          onPress={onListUnit}
-          style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
-        >
-          <View
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 11,
-              backgroundColor: colors.ai,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon name="spark" size={19} color={colors.onAi} fill />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <AILabel>Smart pricing</AILabel>
-            <Text variant="bodyStrong" style={{ fontSize: 14.5, marginTop: 2 }} numberOfLines={1}>
-              Suggested rent: {naira(p.aiPrice)}
-              {multi ? ' / vacant unit' : ''}
-            </Text>
-          </View>
-          <Chip tone="ai" solid icon="trend" label={`+${p.aiDelta}%`} />
-        </AICard>
+      {/* Section tabs */}
+      <SegmentedControl
+        options={sections}
+        value={section}
+        onChange={onSection}
+        style={{ marginTop: spacing.lg }}
+      />
 
-        {/* Marketplace listing status (vacant / has vacancy) */}
-        {(occupancy === 'vacant' || occupancy === 'mixed') && (
-          <View style={{ marginTop: spacing.md }}>
-            <MarketplaceCard property={p} listing={listing} onOpenEnquiries={onEnquiries} />
-          </View>
-        )}
-
-        {/* Section tabs */}
-        <SegmentedControl
-          options={sections}
-          value={section}
-          onChange={onSection}
-          style={{ marginTop: spacing.lg }}
-        />
-
-        <View style={{ marginTop: spacing.lg }}>
-          {/* UNITS */}
-          {section === 'units' && (
-            <View style={{ gap: 11 }}>
-              {(p.units ?? []).map((u: Unit) => {
-                const ut = u.tenantId ? getTenant(u.tenantId) : undefined;
-                return (
-                  <Card
-                    key={u.id}
-                    padding={14}
-                    onPress={() => (ut ? onOpenTenant(ut.id) : onListUnit())}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+      <View style={{ marginTop: spacing.lg }}>
+        {/* UNITS */}
+        {section === 'units' && (
+          <View style={{ gap: 11 }}>
+            {(p.units ?? []).map((u: Unit) => {
+              const ut = u.tenantId ? getTenant(u.tenantId) : undefined;
+              return (
+                <Card
+                  key={u.id}
+                  padding={14}
+                  onPress={() => (ut ? onOpenTenant(ut.id) : onListUnit())}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+                >
+                  <View
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: u.status === 'vacant' ? colors.surface2 : colors.primaryTint,
+                    }}
                   >
-                    <View
-                      style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 12,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: u.status === 'vacant' ? colors.surface2 : colors.primaryTint,
-                      }}
+                    <Text
+                      variant="bodyStrong"
+                      color={u.status === 'vacant' ? colors.muted : colors.primary}
+                      style={{ fontSize: 13 }}
                     >
-                      <Text
-                        variant="bodyStrong"
-                        color={u.status === 'vacant' ? colors.muted : colors.primary}
-                        style={{ fontSize: 13 }}
-                      >
-                        {u.label.replace('Flat ', 'F')}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
-                        {u.label}
-                      </Text>
-                      <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }} numberOfLines={1}>
-                        {u.beds} bed · {u.baths} bath · {ut?.name ?? 'No tenant'}
-                      </Text>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginTop: spacing.sm,
-                        }}
-                      >
-                        <Text variant="bodyStrong" style={{ fontSize: 13.5 }}>
-                          {naira(u.rent)}
-                          <Text variant="caption" color={colors.muted}>
-                            {' '}
-                            /yr
-                          </Text>
-                        </Text>
-                        <StatusChip status={u.status === 'vacant' ? 'vacant' : 'occupied'} />
-                      </View>
-                    </View>
-                  </Card>
-                );
-              })}
-            </View>
-          )}
-
-          {/* TENANTS */}
-          {section === 'tenants' &&
-            (tenantsHere.length > 0 ? (
-              <View style={{ gap: 11 }}>
-                {tenantsHere.map((t) => (
-                  <Card
-                    key={t.id}
-                    padding={13}
-                    onPress={() => onOpenTenant(t.id)}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
-                  >
-                    <Avatar initials={t.initials} size={44} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
-                        {t.name}
-                      </Text>
-                      <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }} numberOfLines={1}>
-                        {t.unit ? `${t.unit} · ` : ''}ends {t.leaseEnd.split(' ').slice(1).join(' ')}
-                      </Text>
-                    </View>
-                    <StatusChip status={t.status} />
-                  </Card>
-                ))}
-              </View>
-            ) : (
-              <EmptyState icon="users" title="No tenants yet" message="Assign a tenant to start tracking rent." />
-            ))}
-
-          {/* PAYMENTS */}
-          {section === 'payments' && (
-            <View>
-              <Card padding={0} style={{ paddingHorizontal: spacing.lg }}>
-                {p.payments.map((pay, i) => (
-                  <View key={`${pay.label}-${i}`}>
+                      {u.label.replace('Flat ', 'F')}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
+                      {u.label}
+                    </Text>
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      style={{ marginTop: 1 }}
+                      numberOfLines={1}
+                    >
+                      {u.beds} bed · {u.baths} bath · {ut?.name ?? 'No tenant'}
+                    </Text>
                     <View
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        paddingVertical: 13,
+                        marginTop: spacing.sm,
                       }}
                     >
-                      <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.sm }}>
-                        <Text variant="bodyMedium" numberOfLines={1}>
-                          {pay.label}
+                      <Text variant="bodyStrong" style={{ fontSize: 13.5 }}>
+                        {naira(u.rent)}
+                        <Text variant="caption" color={colors.muted}>
+                          {' '}
+                          /yr
                         </Text>
-                        <Text variant="caption" color={colors.muted} style={{ marginTop: 2 }} numberOfLines={1}>
-                          {pay.date}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <Text variant="bodyStrong" style={{ fontSize: 14 }}>
-                          {naira(pay.amount)}
-                        </Text>
-                        <PayState state={pay.state} />
-                      </View>
+                      </Text>
+                      <StatusChip status={u.status === 'vacant' ? 'vacant' : 'occupied'} />
                     </View>
-                    {i < p.payments.length - 1 ? <Divider /> : null}
                   </View>
-                ))}
-              </Card>
-              <Button
-                title="Log a payment"
-                variant="secondary"
-                icon="plus"
-                onPress={onLog}
-                style={{ marginTop: spacing.md }}
-              />
-            </View>
-          )}
+                </Card>
+              );
+            })}
+          </View>
+        )}
 
-          {/* ACTIVITY */}
-          {section === 'activity' && (
-            <Card>
-              <Timeline>
-                {activity.map((a, i) => (
-                  <TimelineItem
-                    key={`${a.action}-${i}`}
-                    icon={a.icon}
-                    iconColor={colors.primary}
-                    last={i === activity.length - 1}
-                  >
-                    <Text variant="bodyMedium">{a.action}</Text>
-                    <Text variant="caption" color={colors.muted} style={{ marginTop: 2 }}>
-                      {a.when}
+        {/* TENANTS */}
+        {section === 'tenants' &&
+          (tenantsHere.length > 0 ? (
+            <View style={{ gap: 11 }}>
+              {tenantsHere.map((t) => (
+                <Card
+                  key={t.id}
+                  padding={13}
+                  onPress={() => onOpenTenant(t.id)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+                >
+                  <Avatar initials={t.initials} size={44} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
+                      {t.name}
                     </Text>
-                  </TimelineItem>
-                ))}
-              </Timeline>
-            </Card>
-          )}
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      style={{ marginTop: 1 }}
+                      numberOfLines={1}
+                    >
+                      {t.unit ? `${t.unit} · ` : ''}ends {t.leaseEnd.split(' ').slice(1).join(' ')}
+                    </Text>
+                  </View>
+                  <StatusChip status={t.status} />
+                </Card>
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              icon="users"
+              title="No tenants yet"
+              message="Assign a tenant to start tracking rent."
+            />
+          ))}
 
-          {/* OVERVIEW (single-unit) */}
-          {section === 'overview' &&
-            (tenant ? (
-              <View style={{ gap: spacing.lg }}>
-                <Card padding={16} onPress={() => onOpenTenantByName(tenant.name)}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                    <Avatar initials={tenant.initials} size={48} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text variant="h3" numberOfLines={1}>
-                        {tenant.name}
+        {/* PAYMENTS */}
+        {section === 'payments' && (
+          <View>
+            <Card padding={0} style={{ paddingHorizontal: spacing.lg }}>
+              {p.payments.map((pay, i) => (
+                <View key={`${pay.label}-${i}`}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 13,
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.sm }}>
+                      <Text variant="bodyMedium" numberOfLines={1}>
+                        {pay.label}
                       </Text>
-                      <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }} numberOfLines={1}>
-                        Tenant · lease ends {tenant.leaseEnd}
+                      <Text
+                        variant="caption"
+                        color={colors.muted}
+                        style={{ marginTop: 2 }}
+                        numberOfLines={1}
+                      >
+                        {pay.date}
                       </Text>
                     </View>
-                    <Icon name="fwd" size={18} color={colors.muted} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text variant="bodyStrong" style={{ fontSize: 14 }}>
+                        {naira(pay.amount)}
+                      </Text>
+                      <PayState state={pay.state} />
+                    </View>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
-                    <Button
-                      title="Call"
-                      variant="secondary"
-                      size="sm"
-                      icon="phone"
-                      onPress={() => onOpenTenant(tenant.id)}
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      title="Message"
-                      variant="secondary"
-                      size="sm"
-                      icon="message"
-                      onPress={onMessageTenant}
-                      style={{ flex: 1 }}
-                    />
-                  </View>
-                </Card>
+                  {i < p.payments.length - 1 ? <Divider /> : null}
+                </View>
+              ))}
+            </Card>
+            <Button
+              title="Log a payment"
+              variant="secondary"
+              icon="plus"
+              onPress={onLog}
+              style={{ marginTop: spacing.md }}
+            />
+          </View>
+        )}
 
-                {/* Default risk (AI) */}
-                <RiskCard risk={tenant.risk} />
+        {/* ACTIVITY */}
+        {section === 'activity' && (
+          <Card>
+            <Timeline>
+              {activity.map((a, i) => (
+                <TimelineItem
+                  key={`${a.action}-${i}`}
+                  icon={a.icon}
+                  iconColor={colors.primary}
+                  last={i === activity.length - 1}
+                >
+                  <Text variant="bodyMedium">{a.action}</Text>
+                  <Text variant="caption" color={colors.muted} style={{ marginTop: 2 }}>
+                    {a.when}
+                  </Text>
+                </TimelineItem>
+              ))}
+            </Timeline>
+          </Card>
+        )}
 
-                {/* Rent + lease facts (2×2 grid) */}
-                <Card>
-                  <View style={{ flexDirection: 'row', gap: 16 }}>
-                    <Fact label="Annual rent" value={naira(tenant.rent)} />
-                    <Fact label="Schedule" value={tenant.schedule} />
+        {/* OVERVIEW (single-unit) */}
+        {section === 'overview' &&
+          (tenant ? (
+            <View style={{ gap: spacing.lg }}>
+              <Card padding={16} onPress={() => onOpenTenantByName(tenant.name)}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                  <Avatar initials={tenant.initials} size={48} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text variant="h3" numberOfLines={1}>
+                      {tenant.name}
+                    </Text>
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      style={{ marginTop: 1 }}
+                      numberOfLines={1}
+                    >
+                      Tenant · lease ends {tenant.leaseEnd}
+                    </Text>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 16, marginTop: 16 }}>
-                    <Fact label="Lease start" value={tenant.leaseStart} />
-                    <Fact label="Lease end" value={tenant.leaseEnd} />
-                  </View>
-                </Card>
-              </View>
-            ) : (
-              <Card padding={24}>
-                <EmptyState
-                  icon="door"
-                  title={`Vacant${p.vacantDays ? ` for ${p.vacantDays} days` : ''}`}
-                  message="No tenant assigned. List it on the marketplace or add a tenant directly."
-                  action={{ label: 'List this unit', onPress: onListUnit }}
-                />
+                  <Icon name="fwd" size={18} color={colors.muted} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
+                  <Button
+                    title="Call"
+                    variant="secondary"
+                    size="sm"
+                    icon="phone"
+                    onPress={() => onOpenTenant(tenant.id)}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    title="Message"
+                    variant="secondary"
+                    size="sm"
+                    icon="message"
+                    onPress={onMessageTenant}
+                    style={{ flex: 1 }}
+                  />
+                </View>
               </Card>
-            ))}
-        </View>
 
-        <View style={{ height: 24 }} />
+              {/* Default risk (AI) */}
+              <RiskCard risk={tenant.risk} />
+
+              {/* Rent + lease facts (2×2 grid) */}
+              <Card>
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                  <Fact label="Annual rent" value={naira(tenant.rent)} />
+                  <Fact label="Schedule" value={tenant.schedule} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 16, marginTop: 16 }}>
+                  <Fact label="Lease start" value={tenant.leaseStart} />
+                  <Fact label="Lease end" value={tenant.leaseEnd} />
+                </View>
+              </Card>
+            </View>
+          ) : (
+            <Card padding={24}>
+              <EmptyState
+                icon="door"
+                title={`Vacant${p.vacantDays ? ` for ${p.vacantDays} days` : ''}`}
+                message="No tenant assigned. List it on the marketplace or add a tenant directly."
+                action={{ label: 'List this unit', onPress: onListUnit }}
+              />
+            </Card>
+          ))}
+      </View>
+
+      <View style={{ height: 24 }} />
     </ScrollView>
   );
 }

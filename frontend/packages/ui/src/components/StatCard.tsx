@@ -13,7 +13,13 @@ export interface StatCardProps {
 }
 
 /** Metric card — small label, big display value, optional sub line. */
-export function StatCard({ label, value, sub, subColor = colors.muted, style }: StatCardProps): React.ReactElement {
+export function StatCard({
+  label,
+  value,
+  sub,
+  subColor = colors.muted,
+  style,
+}: StatCardProps): React.ReactElement {
   return (
     <View
       style={[
