@@ -9,6 +9,7 @@ import { AppError } from '../../utils/AppError';
 import { propertyPermission } from '../../rbac/access';
 import { CreatePropertyInput, UpdatePropertyInput } from '../../contracts';
 import * as svc from './properties.service';
+import { listingsForProperty } from '../listings/listings.service';
 
 export const propertiesRouter: Router = Router();
 
@@ -44,7 +45,10 @@ propertiesRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const org = orgOf(req);
-    res.json(await svc.getProperty(org.landlordId, req.params.id as string, org.propertyIds));
+    const id = req.params.id as string;
+    const dto = await svc.getProperty(org.landlordId, id, org.propertyIds);
+    const listings = await listingsForProperty(org.landlordId, id);
+    res.json({ ...dto, listings });
   }),
 );
 

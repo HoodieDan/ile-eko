@@ -13,3 +13,6 @@ export { ActivityLog, type ActivityLogDoc } from './ActivityLog';
 export { OutboxEvent, EffectDelivery, type OutboxEventDoc, type EffectDeliveryDoc } from './OutboxEvent';
 export { TeamMembership, type MembershipDoc } from './TeamMembership';
 export { TeamInvitation, type InvitationDoc } from './TeamInvitation';
+export { Enquiry, type EnquiryDoc } from './Enquiry';
+export { SavedListing, type SavedListingDoc } from './SavedListing';
+export { ListingView, type ListingViewDoc } from './ListingView';

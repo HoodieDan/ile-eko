@@ -17,6 +17,11 @@ import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { activityRouter } from './modules/activity/activity.routes';
 import { uploadsRouter } from './modules/uploads/uploads.routes';
 import { teamRouter } from './modules/team/team.routes';
+import { listingsRouter } from './modules/listings/listings.routes';
+import { searchRouter } from './modules/search/search.routes';
+import { recommendationsRouter } from './modules/recommendations/recommendations.routes';
+import { savedRouter } from './modules/saved/saved.routes';
+import { enquiriesRouter } from './modules/enquiries/enquiries.routes';
 
 /**
  * Build the Express app (no listen — testable). API is versioned under /v1 (§6);
@@ -51,6 +56,11 @@ export function createApp(): Express {
   v1.use('/activity', activityRouter);
   v1.use('/uploads', uploadsRouter);
   v1.use('/team', teamRouter);
+  v1.use('/listings', listingsRouter);
+  v1.use('/search', searchRouter);
+  v1.use('/recommendations', recommendationsRouter);
+  v1.use('/saved-listings', savedRouter);
+  v1.use('/enquiries', enquiriesRouter);
   app.use('/v1', v1);
 
   app.use(notFound);
