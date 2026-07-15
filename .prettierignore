@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Lockfiles (don't reformat)
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Build output & caches
+**/dist/
+**/build/
+**/web-build/
+**/.expo/
+**/.turbo/
+**/.next/
+coverage/
+
+# Generated
+**/expo-env.d.ts
+
+# Native
+**/ios/Pods/
+**/android/
+
+# Misc
+.DS_Store
