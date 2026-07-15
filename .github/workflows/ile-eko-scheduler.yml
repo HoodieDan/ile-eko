@@ -1,0 +1,36 @@
+# Free scheduler for the Ilé Èkó backend on Render's free tier.
+# Render free web services sleep when idle and have no built-in cron/worker, so
+# this Action pings the internal task endpoints on a schedule to:
+#   - drain the outbox (notifications / risk recompute)
+#   - run the daily rent-reminder sweep (idempotent per day)
+#   - keep the service warm
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   API_BASE_URL  = https://<your-render-service>.onrender.com
+#   TASKS_TOKEN   = the TASKS_TOKEN value Render generated for the service
+name: ile-eko-scheduler
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes
+  workflow_dispatch: {} # allow manual runs
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drain outbox
+        run: |
+          curl -fsS -X POST "$API_BASE_URL/tasks/outbox" \
+            -H "x-tasks-token: $TASKS_TOKEN" || echo "outbox ping failed (service may be waking)"
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          TASKS_TOKEN: ${{ secrets.TASKS_TOKEN }}
+
+      - name: Daily sweep (idempotent per day)
+        run: |
+          curl -fsS -X POST "$API_BASE_URL/tasks/daily-sweep" \
+            -H "x-tasks-token: $TASKS_TOKEN" || echo "sweep ping failed (service may be waking)"
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          TASKS_TOKEN: ${{ secrets.TASKS_TOKEN }}
