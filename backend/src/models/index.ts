@@ -16,3 +16,4 @@ export { TeamInvitation, type InvitationDoc } from './TeamInvitation';
 export { Enquiry, type EnquiryDoc } from './Enquiry';
 export { SavedListing, type SavedListingDoc } from './SavedListing';
 export { ListingView, type ListingViewDoc } from './ListingView';
+export { AIConversation, type ConversationDoc } from './AIConversation';

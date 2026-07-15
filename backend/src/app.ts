@@ -22,6 +22,7 @@ import { searchRouter } from './modules/search/search.routes';
 import { recommendationsRouter } from './modules/recommendations/recommendations.routes';
 import { savedRouter } from './modules/saved/saved.routes';
 import { enquiriesRouter } from './modules/enquiries/enquiries.routes';
+import { aiRouter } from './modules/ai/ai.routes';
 
 /**
  * Build the Express app (no listen — testable). API is versioned under /v1 (§6);
@@ -61,6 +62,7 @@ export function createApp(): Express {
   v1.use('/recommendations', recommendationsRouter);
   v1.use('/saved-listings', savedRouter);
   v1.use('/enquiries', enquiriesRouter);
+  v1.use('/ai', aiRouter);
   app.use('/v1', v1);
 
   app.use(notFound);

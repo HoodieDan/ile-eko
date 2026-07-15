@@ -10,6 +10,7 @@ import { propertyPermission } from '../../rbac/access';
 import { CreatePropertyInput, UpdatePropertyInput } from '../../contracts';
 import * as svc from './properties.service';
 import { listingsForProperty } from '../listings/listings.service';
+import { rentSuggestion } from '../ai/ai.service';
 
 export const propertiesRouter: Router = Router();
 
@@ -38,6 +39,15 @@ propertiesRouter.get(
   requireRole('landlord', 'admin'),
   asyncHandler(async (req, res) => {
     res.json(await svc.propertyStats(orgOf(req).landlordId));
+  }),
+);
+
+// AI smart pricing — landlord-only (§7.3). Registered before /:id-only paths is fine (distinct suffix).
+propertiesRouter.get(
+  '/:id/rent-suggestion',
+  requireRole('landlord', 'admin'),
+  asyncHandler(async (req, res) => {
+    res.json(await rentSuggestion(orgOf(req).landlordId, req.params.id as string));
   }),
 );
 

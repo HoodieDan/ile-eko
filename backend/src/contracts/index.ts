@@ -13,3 +13,4 @@ export * from './upload';
 export * from './team';
 export * from './listing';
 export * from './enquiry';
+export * from './ai';
