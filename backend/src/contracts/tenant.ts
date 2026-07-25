@@ -20,6 +20,7 @@ export const TenantDTO = z.object({
   // composed from the current lease (null if none)
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
+  leaseId: z.string().optional(),
   rentAmount: z.number().int().nonnegative().optional(),
   paymentSchedule: PaymentFrequency.optional(),
   leaseStartDate: z.string().optional(),

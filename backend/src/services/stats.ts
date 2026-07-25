@@ -117,6 +117,7 @@ export async function upcomingRent(landlordId: string, limit = 5): Promise<Upcom
 export type TenantLeaseFacts = {
   propertyId?: string;
   unitId?: string;
+  leaseId?: string;
   rentAmount?: number;
   paymentSchedule?: string;
   leaseStartDate?: string;
@@ -147,6 +148,7 @@ export async function tenantLeaseFacts(tenantId: string): Promise<TenantLeaseFac
 
   return {
     propertyId: String(lease.propertyId),
+    leaseId: String(lease._id),
     ...(lease.unitId ? { unitId: String(lease.unitId) } : {}),
     rentAmount: lease.billingAmount,
     paymentSchedule: lease.schedule,

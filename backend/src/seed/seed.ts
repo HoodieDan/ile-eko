@@ -23,8 +23,11 @@ export async function seed(): Promise<void> {
   void isProd;
   assertSeedAllowed(env.NODE_ENV, env.SEED_ALLOW);
 
-  const pwd = () => `pw_${randomBytes(9).toString('base64url')}`;
-  const creds = { landlord: pwd(), caretaker: pwd(), tenant: pwd(), admin: pwd() };
+  // Demo convenience: a fixed, memorable password (SEED_PASSWORD overrides).
+  // Safe because seeding is refused in production (assertSeedAllowed above).
+  const demoPw = process.env.SEED_PASSWORD || 'Password123?';
+  void randomBytes; // (random-cred generation retained for reference; demo uses a fixed pw)
+  const creds = { landlord: demoPw, caretaker: demoPw, tenant: demoPw, admin: demoPw };
 
   const [landlord] = await User.create([
     { fullName: 'Demo Landlord', email: 'landlord@example.com', password: await hashPassword(creds.landlord), role: 'landlord', isVerified: true },

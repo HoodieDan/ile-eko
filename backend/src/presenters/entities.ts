@@ -78,6 +78,7 @@ export function presentTenant(t: TenantDoc, facts: TenantLeaseFacts): TenantDTO 
     ...(t.email ? { email: t.email } : {}),
     ...(t.notes ? { notes: t.notes } : {}),
     ...(facts.propertyId ? { propertyId: facts.propertyId } : {}),
+    ...(facts.leaseId ? { leaseId: facts.leaseId } : {}),
     ...(facts.unitId ? { unitId: facts.unitId } : {}),
     ...(facts.rentAmount != null ? { rentAmount: facts.rentAmount } : {}),
     ...(facts.paymentSchedule ? { paymentSchedule: facts.paymentSchedule as PaymentFrequency } : {}),
