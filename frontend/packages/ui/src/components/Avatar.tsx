@@ -27,7 +27,12 @@ export interface AvatarProps {
 }
 
 /** Circular initials avatar. */
-export function Avatar({ initials, size = 44, tone = 'tint', style }: AvatarProps): React.ReactElement {
+export function Avatar({
+  initials,
+  size = 44,
+  tone = 'tint',
+  style,
+}: AvatarProps): React.ReactElement {
   const t = toneStyle(tone);
   return (
     <View
@@ -43,7 +48,11 @@ export function Avatar({ initials, size = 44, tone = 'tint', style }: AvatarProp
         style,
       ]}
     >
-      <Text variant="bodyStrong" color={t.fg} style={{ fontSize: size * 0.34, lineHeight: size * 0.34 }}>
+      <Text
+        variant="bodyStrong"
+        color={t.fg}
+        style={{ fontSize: size * 0.34, lineHeight: size * 0.34 }}
+      >
         {initials}
       </Text>
     </View>

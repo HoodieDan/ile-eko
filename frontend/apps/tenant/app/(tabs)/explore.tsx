@@ -51,7 +51,9 @@ export default function Explore(): React.ReactElement {
   return (
     <Screen scroll padded bottomSpace={120} contentContainerStyle={{ paddingTop: spacing.xs }}>
       {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <View
+        style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}
+      >
         <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.md }}>
           <Text variant="body" color={colors.muted} style={{ fontSize: 13 }}>
             Good afternoon, {firstName}
@@ -147,7 +149,11 @@ export default function Explore(): React.ReactElement {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{ marginHorizontal: -spacing.xl }}
-        contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.xl, paddingBottom: spacing.xs }}
+        contentContainerStyle={{
+          gap: spacing.md,
+          paddingHorizontal: spacing.xl,
+          paddingBottom: spacing.xs,
+        }}
       >
         {recommended.map((l) => (
           <Pressable
@@ -174,7 +180,12 @@ export default function Explore(): React.ReactElement {
               <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
                 {l.title}
               </Text>
-              <Text variant="caption" color={colors.muted} style={{ marginTop: 2 }} numberOfLines={1}>
+              <Text
+                variant="caption"
+                color={colors.muted}
+                style={{ marginTop: 2 }}
+                numberOfLines={1}
+              >
                 {l.area} · {naira(l.rent)}/yr
               </Text>
             </View>
@@ -208,7 +219,12 @@ interface ListingCardProps {
   onToggleSave: () => void;
 }
 
-function ListingCard({ listing, saved, onOpen, onToggleSave }: ListingCardProps): React.ReactElement {
+function ListingCard({
+  listing,
+  saved,
+  onOpen,
+  onToggleSave,
+}: ListingCardProps): React.ReactElement {
   const l = listing;
   return (
     <Pressable
@@ -328,7 +344,13 @@ function SaveHeart({ on, onToggle }: SaveHeartProps): React.ReactElement {
         elevation: 4,
       })}
     >
-      <Icon name="heart" size={19} color={on ? colors.danger : colors.ink} fill={on} strokeWidth={2} />
+      <Icon
+        name="heart"
+        size={19}
+        color={on ? colors.danger : colors.ink}
+        fill={on}
+        strokeWidth={2}
+      />
     </Pressable>
   );
 }

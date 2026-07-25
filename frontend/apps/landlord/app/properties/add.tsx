@@ -191,7 +191,9 @@ export default function AddProperty(): React.ReactElement {
         </View>
 
         <Card flat padding={14}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text variant="bodyStrong" color={colors.ink} style={{ fontSize: 14.5 }}>
                 Has multiple units?
@@ -208,7 +210,11 @@ export default function AddProperty(): React.ReactElement {
           <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13 }}>
             Payment frequency
           </Text>
-          <SegmentedControl options={FREQ_OPTIONS} value={form.freq} onChange={(v) => set('freq', v)} />
+          <SegmentedControl
+            options={FREQ_OPTIONS}
+            value={form.freq}
+            onChange={(v) => set('freq', v)}
+          />
         </View>
 
         <View style={{ gap: 7 }}>

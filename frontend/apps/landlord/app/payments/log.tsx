@@ -20,7 +20,14 @@ import {
   radii,
   useToast,
 } from '@ile-eko/ui';
-import { properties, summary, naira, nairaShort, type Property, type PropertyStatus } from '@/data/mock';
+import {
+  properties,
+  summary,
+  naira,
+  nairaShort,
+  type Property,
+  type PropertyStatus,
+} from '@/data/mock';
 
 type Filter = 'all' | PropertyStatus;
 
@@ -42,7 +49,13 @@ export default function LogPayment(): React.ReactElement {
   const outstanding = summary.overdueAmt + summary.dueAmt;
 
   const counts = useMemo<Record<Filter, number>>(() => {
-    const c: Record<Filter, number> = { all: properties.length, paid: 0, due: 0, overdue: 0, vacant: 0 };
+    const c: Record<Filter, number> = {
+      all: properties.length,
+      paid: 0,
+      due: 0,
+      overdue: 0,
+      vacant: 0,
+    };
     properties.forEach((p) => {
       const st = p.status ?? 'vacant';
       c[st] += 1;
@@ -61,7 +74,11 @@ export default function LogPayment(): React.ReactElement {
 
   return (
     <Screen scroll padded bottomSpace={120}>
-      <AppBar title="Rent & payments" subtitle="Current cycle · 2025 – 2026" onBack={() => router.back()} />
+      <AppBar
+        title="Rent & payments"
+        subtitle="Current cycle · 2025 – 2026"
+        onBack={() => router.back()}
+      />
 
       {/* Summary tiles */}
       <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
@@ -91,7 +108,10 @@ export default function LogPayment(): React.ReactElement {
 
       {/* AI default-prediction banner */}
       {riskProp && riskProp.tenant ? (
-        <AICard onPress={() => router.push(`/properties/${riskProp.id}`)} style={{ marginTop: spacing.md }}>
+        <AICard
+          onPress={() => router.push(`/properties/${riskProp.id}`)}
+          style={{ marginTop: spacing.md }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
             <View
               style={{
@@ -124,7 +144,12 @@ export default function LogPayment(): React.ReactElement {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{ marginHorizontal: -spacing.xl, marginTop: spacing.lg }}
-        contentContainerStyle={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: 2 }}
+        contentContainerStyle={{
+          flexDirection: 'row',
+          gap: spacing.sm,
+          paddingHorizontal: spacing.xl,
+          paddingBottom: 2,
+        }}
       >
         {FILTERS.map((f) => {
           const on = filter === f.id;
@@ -147,7 +172,11 @@ export default function LogPayment(): React.ReactElement {
               <Text variant="captionStrong" color={on ? colors.onPrimary : colors.ink}>
                 {f.label}
               </Text>
-              <Text variant="captionStrong" color={on ? colors.onPrimary : colors.ink} style={{ fontSize: 11, opacity: 0.7 }}>
+              <Text
+                variant="captionStrong"
+                color={on ? colors.onPrimary : colors.ink}
+                style={{ fontSize: 11, opacity: 0.7 }}
+              >
                 {counts[f.id]}
               </Text>
             </Pressable>
@@ -168,7 +197,8 @@ export default function LogPayment(): React.ReactElement {
             {list.map((p) => {
               const st = p.status ?? 'vacant';
               const actionable = st === 'overdue' || st === 'due';
-              const days = st === 'overdue' ? p.overdueDays : st === 'due' ? p.lease?.daysToDue : undefined;
+              const days =
+                st === 'overdue' ? p.overdueDays : st === 'due' ? p.lease?.daysToDue : undefined;
               return (
                 <Card key={p.id} padding={14}>
                   <Pressable
@@ -195,7 +225,12 @@ export default function LogPayment(): React.ReactElement {
                       <Text variant="bodyStrong" numberOfLines={1}>
                         {p.tenant ? p.tenant.name : 'No tenant'}
                       </Text>
-                      <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 1 }}>
+                      <Text
+                        variant="caption"
+                        color={colors.muted}
+                        numberOfLines={1}
+                        style={{ marginTop: 1 }}
+                      >
                         {p.area} · {nairaShort(p.rent)}/yr
                       </Text>
                     </View>
@@ -218,10 +253,7 @@ export default function LogPayment(): React.ReactElement {
       </View>
 
       {/* Log payment sheet */}
-      <LogPaymentSheet
-        property={target}
-        onClose={() => setTarget(null)}
-      />
+      <LogPaymentSheet property={target} onClose={() => setTarget(null)} />
     </Screen>
   );
 }
@@ -374,7 +406,9 @@ function LogPaymentSheet({ property, onClose }: LogPaymentSheetProps): React.Rea
                   gap: 7,
                 }}
               >
-                {on ? <Icon name="check" size={15} color={colors.primary} strokeWidth={2.4} /> : null}
+                {on ? (
+                  <Icon name="check" size={15} color={colors.primary} strokeWidth={2.4} />
+                ) : null}
                 <Text variant="captionStrong" color={on ? colors.primary : colors.ink}>
                   {m.label}
                 </Text>

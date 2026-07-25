@@ -49,7 +49,14 @@ export function BottomSheet({
           }}
         >
           <View
-            style={{ width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line, alignSelf: 'center', marginBottom: 16 }}
+            style={{
+              width: 40,
+              height: 5,
+              borderRadius: 999,
+              backgroundColor: colors.line,
+              alignSelf: 'center',
+              marginBottom: 16,
+            }}
           />
           {title ? <Text variant="title">{title}</Text> : null}
           {subtitle ? (

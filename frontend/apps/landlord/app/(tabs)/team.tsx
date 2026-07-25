@@ -20,11 +20,12 @@ import {
 } from '@ile-eko/ui';
 import { caretakers, activityLog, type Caretaker } from '@/data/mock';
 
-const STATUS_META: Record<Caretaker['status'], { tone: ChipTone; icon: IconName; label: string }> = {
-  active: { tone: 'ok', icon: 'check', label: 'Active' },
-  pending: { tone: 'warn', icon: 'clock', label: 'Pending' },
-  revoked: { tone: 'neutral', icon: 'x', label: 'Revoked' },
-};
+const STATUS_META: Record<Caretaker['status'], { tone: ChipTone; icon: IconName; label: string }> =
+  {
+    active: { tone: 'ok', icon: 'check', label: 'Active' },
+    pending: { tone: 'warn', icon: 'clock', label: 'Pending' },
+    revoked: { tone: 'neutral', icon: 'x', label: 'Revoked' },
+  };
 
 function caretakerSubtitle(c: Caretaker): string {
   if (c.status === 'pending') return 'Invite sent · awaiting acceptance';
@@ -171,19 +172,37 @@ export default function TeamTab(): React.ReactElement {
       <Card padding={0} style={{ paddingHorizontal: spacing.lg }}>
         {recent.map((a, i) => (
           <View key={a.id}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: 13 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: spacing.md,
+                paddingVertical: 13,
+              }}
+            >
               <Avatar initials={a.initials} size={34} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text variant="captionStrong" style={{ fontSize: 13.5 }}>
                   {a.action}
                 </Text>
-                <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 1 }}>
+                <Text
+                  variant="caption"
+                  color={colors.muted}
+                  numberOfLines={1}
+                  style={{ marginTop: 1 }}
+                >
                   {a.detail}
                 </Text>
                 {a.flag ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }}>
+                  <View
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }}
+                  >
                     <Icon name="spark" size={12} color={colors.aiDeep} fill />
-                    <Text variant="captionStrong" color={colors.aiDeep} style={{ fontSize: 11.5, flex: 1 }}>
+                    <Text
+                      variant="captionStrong"
+                      color={colors.aiDeep}
+                      style={{ fontSize: 11.5, flex: 1 }}
+                    >
                       {a.flag}
                     </Text>
                   </View>

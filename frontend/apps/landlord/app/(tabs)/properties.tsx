@@ -116,10 +116,7 @@ export default function PropertiesScreen(): React.ReactElement {
                   gap: 7,
                 }}
               >
-                <Text
-                  variant="captionStrong"
-                  color={active ? colors.onPrimary : colors.ink}
-                >
+                <Text variant="captionStrong" color={active ? colors.onPrimary : colors.ink}>
                   {f.label}
                 </Text>
                 <Text
@@ -203,11 +200,7 @@ export default function PropertiesScreen(): React.ReactElement {
                         </Text>
                       </Text>
                       {p.multiUnit ? (
-                        <Chip
-                          tone="neutral"
-                          icon="layers"
-                          label={`${p.unitCount ?? 0} units`}
-                        />
+                        <Chip tone="neutral" icon="layers" label={`${p.unitCount ?? 0} units`} />
                       ) : (
                         <Chip tone="neutral" icon="home" label={p.type} />
                       )}
@@ -221,11 +214,7 @@ export default function PropertiesScreen(): React.ReactElement {
       </View>
 
       <FABHost>
-        <FAB
-          label="Add Property"
-          icon="plus"
-          onPress={() => router.push('/properties/add')}
-        />
+        <FAB label="Add Property" icon="plus" onPress={() => router.push('/properties/add')} />
       </FABHost>
     </Screen>
   );

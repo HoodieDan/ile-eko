@@ -13,7 +13,13 @@ export interface EmptyStateProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function EmptyState({ icon, title, message, action, style }: EmptyStateProps): React.ReactElement {
+export function EmptyState({
+  icon,
+  title,
+  message,
+  action,
+  style,
+}: EmptyStateProps): React.ReactElement {
   return (
     <View style={[{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 }, style]}>
       <View
@@ -38,7 +44,13 @@ export function EmptyState({ icon, title, message, action, style }: EmptyStatePr
         </Text>
       ) : null}
       {action ? (
-        <Button title={action.label} onPress={action.onPress} size="sm" fullWidth={false} style={{ marginTop: 16 }} />
+        <Button
+          title={action.label}
+          onPress={action.onPress}
+          size="sm"
+          fullWidth={false}
+          style={{ marginTop: 16 }}
+        />
       ) : null}
     </View>
   );

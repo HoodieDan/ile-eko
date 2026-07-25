@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '../tokens/colors';
 import { radii } from '../tokens/radii';
 import { elevation } from '../tokens/elevation';
@@ -100,11 +94,21 @@ export function Button({
         <ActivityIndicator size="small" color={v.fg} />
       ) : (
         <>
-          {icon ? <Icon name={icon} size={iconSize} color={v.fg} strokeWidth={2} fill={icon === 'spark'} /> : null}
+          {icon ? (
+            <Icon
+              name={icon}
+              size={iconSize}
+              color={v.fg}
+              strokeWidth={2}
+              fill={icon === 'spark'}
+            />
+          ) : null}
           <Text variant="button" color={v.fg} style={isSm ? { fontSize: 14 } : undefined}>
             {title}
           </Text>
-          {iconRight ? <Icon name={iconRight} size={iconSize} color={v.fg} strokeWidth={2} /> : null}
+          {iconRight ? (
+            <Icon name={iconRight} size={iconSize} color={v.fg} strokeWidth={2} />
+          ) : null}
         </>
       )}
     </Pressable>

@@ -32,7 +32,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
       setToast({ msg, icon });
       Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
       timer.current = setTimeout(() => {
-        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setToast(null));
+        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+          setToast(null),
+        );
       }, 2600);
     },
     [opacity],
@@ -43,33 +45,33 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
       <View style={{ flex: 1 }}>
         {children}
         {toast ? (
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 16,
-            right: 16,
-            bottom: insets.bottom + 24,
-            opacity,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 10,
-            backgroundColor: colors.ink,
-            borderRadius: 15,
-            paddingVertical: 14,
-            paddingHorizontal: 16,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 18 },
-            shadowOpacity: 0.4,
-            shadowRadius: 30,
-            elevation: 12,
-          }}
-        >
-          <Icon name={toast.icon} size={20} color="#8FD3A8" strokeWidth={2} />
-          <Text variant="bodyStrong" color={colors.bg} style={{ flex: 1 }}>
-            {toast.msg}
-          </Text>
-        </Animated.View>
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: insets.bottom + 24,
+              opacity,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: colors.ink,
+              borderRadius: 15,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 18 },
+              shadowOpacity: 0.4,
+              shadowRadius: 30,
+              elevation: 12,
+            }}
+          >
+            <Icon name={toast.icon} size={20} color="#8FD3A8" strokeWidth={2} />
+            <Text variant="bodyStrong" color={colors.bg} style={{ flex: 1 }}>
+              {toast.msg}
+            </Text>
+          </Animated.View>
         ) : null}
       </View>
     </ToastContext.Provider>

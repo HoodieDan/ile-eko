@@ -224,9 +224,7 @@ export default function Activity(): React.ReactElement {
                           marginTop: 6,
                         }}
                       >
-                        <View
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}
-                        >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                           <Avatar initials={entry.initials} size={18} />
                           <Text variant="captionStrong" color={colors.muted}>
                             {entry.who}
@@ -249,11 +247,7 @@ export default function Activity(): React.ReactElement {
                             }}
                           >
                             <Icon name="spark" size={14} color={colors.aiDeep} fill />
-                            <Text
-                              variant="captionStrong"
-                              color={colors.aiDeep}
-                              style={{ flex: 1 }}
-                            >
+                            <Text variant="captionStrong" color={colors.aiDeep} style={{ flex: 1 }}>
                               {entry.flag}
                             </Text>
                           </View>
@@ -261,12 +255,7 @@ export default function Activity(): React.ReactElement {
                       ) : null}
                     </View>
 
-                    <Icon
-                      name="fwd"
-                      size={16}
-                      color={colors.muted}
-                      style={{ marginTop: 4 }}
-                    />
+                    <Icon name="fwd" size={16} color={colors.muted} style={{ marginTop: 4 }} />
                   </Pressable>
                 );
               })}

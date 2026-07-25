@@ -3,15 +3,7 @@ import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@ile-eko/core';
-import {
-  Button,
-  Input,
-  Logo,
-  SegmentedControl,
-  Text,
-  colors,
-  spacing,
-} from '@ile-eko/ui';
+import { Button, Input, Logo, SegmentedControl, Text, colors, spacing } from '@ile-eko/ui';
 
 type AuthMode = 'login' | 'register';
 type AuthVia = 'email' | 'phone';

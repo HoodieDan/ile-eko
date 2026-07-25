@@ -52,7 +52,12 @@ export default function AccountTab(): React.ReactElement {
 
   const rows: AccountRow[] = [
     { icon: 'user', label: 'Account & profile', sub: landlord.name },
-    { icon: 'users', label: 'Tenants', sub: `${tenants.length} across your portfolio`, route: '/tenants' },
+    {
+      icon: 'users',
+      label: 'Tenants',
+      sub: `${tenants.length} across your portfolio`,
+      route: '/tenants',
+    },
     {
       icon: 'message',
       label: 'Enquiries',
@@ -61,7 +66,12 @@ export default function AccountTab(): React.ReactElement {
       badge: unread,
     },
     { icon: 'idcard', label: 'Verification & KYC', sub: 'Verified · NIN on file' },
-    { icon: 'building', label: 'Marketplace listings', sub: "Vacant units you've published", soon: true },
+    {
+      icon: 'building',
+      label: 'Marketplace listings',
+      sub: "Vacant units you've published",
+      soon: true,
+    },
     { icon: 'doc', label: 'Documents & leases', sub: 'Agreements, receipts', soon: true },
     { icon: 'settings', label: 'Settings & security', sub: 'Password, devices' },
   ];
@@ -119,7 +129,12 @@ export default function AccountTab(): React.ReactElement {
                 <Text variant="bodyStrong" numberOfLines={1}>
                   {r.label}
                 </Text>
-                <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 1 }}>
+                <Text
+                  variant="caption"
+                  color={colors.muted}
+                  numberOfLines={1}
+                  style={{ marginTop: 1 }}
+                >
                   {r.sub}
                 </Text>
               </View>

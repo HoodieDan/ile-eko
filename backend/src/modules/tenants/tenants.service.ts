@@ -1,0 +1,128 @@
+import { Types } from 'mongoose';
+import { AppError } from '../../utils/AppError';
+import { withTxn } from '../../utils/withTxn';
+import { Lease, Payment, Tenant, type TenantDoc } from '../../models';
+import { emitActivity } from '../../services/activityLog';
+import { tenantLeaseFacts } from '../../services/stats';
+import { presentTenant, presentPayment } from '../../presenters/entities';
+import type { CreateTenantInput, PaymentDTO, TenantDTO, UpdateTenantInput } from '../../contracts';
+
+interface Actor {
+  userId: string;
+  name: string;
+}
+
+async function ownedTenant(landlordId: string, id: string): Promise<TenantDoc> {
+  if (!Types.ObjectId.isValid(id)) throw AppError.notFound('Tenant not found');
+  const tenant = await Tenant.findOne({ _id: id, landlordId, archivedAt: { $exists: false } });
+  if (!tenant) throw AppError.notFound('Tenant not found');
+  return tenant;
+}
+
+export async function listTenants(
+  landlordId: string,
+  propertyId?: string,
+  scopePropertyIds: string[] | null = null,
+): Promise<TenantDTO[]> {
+  let tenantIds: Types.ObjectId[] | undefined;
+  // Caretaker scope: only tenants with an active lease on assigned properties.
+  if (scopePropertyIds) {
+    const leases = await Lease.find(
+      { landlordId, propertyId: { $in: scopePropertyIds }, status: 'active' },
+      { tenantId: 1 },
+    ).lean();
+    tenantIds = leases.map((l) => l.tenantId as Types.ObjectId);
+  }
+  if (propertyId) {
+    const leases = await Lease.find({ landlordId, propertyId, status: 'active' }, { tenantId: 1 }).lean();
+    const ids = leases.map((l) => l.tenantId as Types.ObjectId);
+    tenantIds = tenantIds ? tenantIds.filter((t) => ids.some((i) => i.equals(t))) : ids;
+  }
+  const query: Record<string, unknown> = { landlordId, archivedAt: { $exists: false } };
+  if (tenantIds) query._id = { $in: tenantIds };
+  const tenants = await Tenant.find(query).sort({ createdAt: -1 });
+  return Promise.all(tenants.map(async (t) => presentTenant(t, await tenantLeaseFacts(t.id))));
+}
+
+export async function getTenant(landlordId: string, id: string): Promise<TenantDTO> {
+  const tenant = await ownedTenant(landlordId, id);
+  return presentTenant(tenant, await tenantLeaseFacts(tenant.id));
+}
+
+export async function tenantHistory(landlordId: string, id: string): Promise<PaymentDTO[]> {
+  const tenant = await ownedTenant(landlordId, id);
+  const payments = await Payment.find({ tenantId: tenant._id }).sort({ paidAt: -1 });
+  return payments.map(presentPayment);
+}
+
+export async function createTenant(
+  landlordId: string,
+  actor: Actor,
+  input: CreateTenantInput,
+): Promise<TenantDTO> {
+  return withTxn(async (session) => {
+    const [tenant] = await Tenant.create(
+      [
+        {
+          landlordId,
+          addedBy: new Types.ObjectId(actor.userId),
+          tenantName: input.fullName,
+          phoneNumber: input.phone,
+          ...(input.email ? { email: input.email } : {}),
+          ...(input.notes ? { notes: input.notes } : {}),
+        },
+      ],
+      { session },
+    );
+    await emitActivity(session, {
+      actorId: actor.userId,
+      actorName: actor.name,
+      landlordId,
+      action: 'tenant.added',
+      entityId: tenant!._id,
+      description: `Tenant ${tenant!.tenantName} added`,
+    });
+    return presentTenant(tenant!, { status: 'no-lease' });
+  });
+}
+
+export async function updateTenant(
+  landlordId: string,
+  actor: Actor,
+  id: string,
+  input: UpdateTenantInput,
+): Promise<TenantDTO> {
+  const tenant = await ownedTenant(landlordId, id);
+  return withTxn(async (session) => {
+    if (input.fullName) tenant.tenantName = input.fullName;
+    if (input.phone) tenant.phoneNumber = input.phone;
+    if (input.email !== undefined) tenant.email = input.email;
+    if (input.notes !== undefined) tenant.notes = input.notes;
+    await tenant.save({ session });
+    await emitActivity(session, {
+      actorId: actor.userId,
+      actorName: actor.name,
+      landlordId,
+      action: 'tenant.updated',
+      entityId: tenant._id,
+      description: `Tenant ${tenant.tenantName} updated`,
+    });
+    return presentTenant(tenant, await tenantLeaseFacts(tenant.id));
+  });
+}
+
+export async function archiveTenant(landlordId: string, actor: Actor, id: string): Promise<void> {
+  const tenant = await ownedTenant(landlordId, id);
+  await withTxn(async (session) => {
+    tenant.set('archivedAt', new Date());
+    await tenant.save({ session });
+    await emitActivity(session, {
+      actorId: actor.userId,
+      actorName: actor.name,
+      landlordId,
+      action: 'tenant.updated',
+      entityId: tenant._id,
+      description: `Tenant ${tenant.tenantName} removed`,
+    });
+  });
+}

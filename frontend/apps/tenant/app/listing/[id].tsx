@@ -78,14 +78,22 @@ export default function ListingDetail(): React.ReactElement | null {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style="light" />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
         {/* Hero (bleeds up behind the status bar) */}
         <View style={{ height: 280 + insets.top }}>
           <LinearGradient
             colors={heroGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: insets.top }}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingTop: insets.top,
+            }}
           >
             <Icon name="building" size={120} color="rgba(255,255,255,0.16)" strokeWidth={1.4} />
             <View
@@ -184,7 +192,11 @@ export default function ListingDetail(): React.ReactElement | null {
                     >
                       <Icon name={am.ic} size={17} color={colors.primary} />
                     </View>
-                    <Text variant="bodyMedium" style={{ fontSize: 13.5, flex: 1 }} numberOfLines={2}>
+                    <Text
+                      variant="bodyMedium"
+                      style={{ fontSize: 13.5, flex: 1 }}
+                      numberOfLines={2}
+                    >
                       {am.label}
                     </Text>
                   </View>
@@ -227,25 +239,39 @@ export default function ListingDetail(): React.ReactElement | null {
             >
               <Icon name="pin" size={22} color="#FFFFFF" />
             </View>
-            <Text
-              variant="label"
-              color={colors.muted}
-              style={{ marginTop: spacing.sm }}
-            >
+            <Text variant="label" color={colors.muted} style={{ marginTop: spacing.sm }}>
               {l.area} · MAP PREVIEW
             </Text>
           </View>
 
           {/* Landlord (no owner-only data) */}
           <Card flat style={{ marginTop: 18, paddingVertical: 14, paddingHorizontal: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1, minWidth: 0 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 11,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
                 <Avatar initials={initials} size={40} tone="tint" />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text variant="label" color={colors.muted}>
                     LISTED BY
                   </Text>
-                  <Text variant="bodyStrong" style={{ fontSize: 14.5, marginTop: 2 }} numberOfLines={1}>
+                  <Text
+                    variant="bodyStrong"
+                    style={{ fontSize: 14.5, marginTop: 2 }}
+                    numberOfLines={1}
+                  >
                     {l.landlord}
                   </Text>
                 </View>

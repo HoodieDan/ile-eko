@@ -28,7 +28,12 @@ export default function Splash(): React.ReactElement {
   return (
     <Pressable style={{ flex: 1 }} onPress={go}>
       <StatusBar style="light" />
-      <LinearGradient colors={heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
+      <LinearGradient
+        colors={heroGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1 }}
+      >
         <Animated.View
           style={{
             flex: 1,
