@@ -1,6 +1,6 @@
 import React from 'react';
-import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
+import { Redirect, useRouter } from 'expo-router';
 import {
   Screen,
   Text,
@@ -12,23 +12,30 @@ import {
   spacing,
   radii,
 } from '@ile-eko/ui';
-import { sentEnquiries, getListing, naira, type SentEnquiry } from '@/data/mock';
+import {
+  naira,
+  timeAgo,
+  useAuth,
+  useListing,
+  useMyEnquiries,
+  type EnquiryDTO,
+} from '@ile-eko/core';
 
 function EnquiryCard({
   enquiry,
   onOpen,
 }: {
-  enquiry: SentEnquiry;
+  enquiry: EnquiryDTO;
   onOpen: (listingId: string) => void;
-}): React.ReactElement | null {
-  const listing = getListing(enquiry.listingId);
-  if (!listing) return null;
+}): React.ReactElement {
+  const { data: listing } = useListing(enquiry.listingId);
 
   const replied = enquiry.status === 'replied';
-  const landlordFirst = listing.landlord.split(' ')[0] ?? listing.landlord;
+  const landlordName = listing?.landlordName ?? '';
+  const landlordFirst = landlordName.split(' ')[0] ?? landlordName;
 
   return (
-    <Card padding={14} flat onPress={() => onOpen(listing.id)}>
+    <Card padding={14} flat onPress={() => onOpen(enquiry.listingId)}>
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <PropertyThumb size={52} radius={12} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -41,15 +48,17 @@ function EnquiryCard({
             }}
           >
             <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
-              {listing.title}
+              {listing?.title ?? 'Listing'}
             </Text>
             <Text variant="caption" color={colors.muted}>
-              {enquiry.when}
+              {timeAgo(enquiry.createdAt)}
             </Text>
           </View>
-          <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }}>
-            {listing.area} · {naira(listing.rent)}/yr
-          </Text>
+          {listing ? (
+            <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }}>
+              {listing.area} · {naira(listing.rent)}/yr
+            </Text>
+          ) : null}
           <View style={{ marginTop: 7 }}>
             {replied ? (
               <Chip tone="ok" icon="checkCircle" label="Landlord replied" />
@@ -85,9 +94,11 @@ function EnquiryCard({
           }}
         >
           <Text variant="body" color={colors.ink} style={{ lineHeight: 19 }}>
-            <Text variant="bodyStrong" color={colors.ink}>
-              {landlordFirst}:{' '}
-            </Text>
+            {landlordFirst ? (
+              <Text variant="bodyStrong" color={colors.ink}>
+                {landlordFirst}:{' '}
+              </Text>
+            ) : null}
             {enquiry.reply}
           </Text>
         </View>
@@ -96,8 +107,16 @@ function EnquiryCard({
   );
 }
 
-export default function Enquiries(): React.ReactElement {
+export default function Enquiries(): React.ReactElement | null {
+  const { status } = useAuth();
+  if (status === 'loading') return null;
+  if (status !== 'authenticated') return <Redirect href="/(auth)/login" />;
+  return <EnquiriesContent />;
+}
+
+function EnquiriesContent(): React.ReactElement {
   const router = useRouter();
+  const { data: enquiries = [], isLoading } = useMyEnquiries();
 
   const open = (listingId: string): void => {
     router.push(`/listing/${listingId}`);
@@ -112,7 +131,11 @@ export default function Enquiries(): React.ReactElement {
         </Text>
       </View>
 
-      {sentEnquiries.length === 0 ? (
+      {isLoading ? (
+        <View style={{ paddingTop: 60, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : enquiries.length === 0 ? (
         <View style={{ marginTop: spacing['3xl'] }}>
           <EmptyState
             icon="message"
@@ -122,7 +145,7 @@ export default function Enquiries(): React.ReactElement {
         </View>
       ) : (
         <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
-          {sentEnquiries.map((e) => (
+          {enquiries.map((e) => (
             <EnquiryCard key={e.id} enquiry={e} onOpen={open} />
           ))}
         </View>

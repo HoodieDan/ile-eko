@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import {
   AICard,
   AILabel,
@@ -19,55 +20,101 @@ import {
   spacing,
   radii,
   useToast,
+  type StatusKind,
 } from '@ile-eko/ui';
 import {
-  properties,
-  summary,
+  api,
+  useProperties,
+  usePaymentsSummary,
+  useTenants,
+  useLogPayment,
+  initialsOf,
   naira,
   nairaShort,
-  type Property,
-  type PropertyStatus,
-} from '@/data/mock';
+  type TenantDTO,
+  type PropertyDTO,
+  type PaymentReceiptDTO,
+} from '@ile-eko/core';
 
-type Filter = 'all' | PropertyStatus;
+type PaymentMethod = NonNullable<PaymentReceiptDTO['method']>;
+type Filter = 'all' | 'overdue' | 'due' | 'paid' | 'vacant';
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'overdue', label: 'Overdue' },
   { id: 'due', label: 'Due soon' },
   { id: 'paid', label: 'Paid' },
-  { id: 'vacant', label: 'Vacant' },
+  { id: 'vacant', label: 'No lease' },
 ];
+
+const EMPTY_SUMMARY = {
+  collected: 0,
+  rollAnnual: 0,
+  overdueAmt: 0,
+  dueAmt: 0,
+  vacantAmt: 0,
+  occupied: 0,
+  total: 0,
+  occupancyPct: 0,
+  collectedPct: 0,
+};
+
+/** Which filter bucket a tenant's lifecycle status belongs to. */
+function bucketOf(status: TenantDTO['status']): Filter | null {
+  if (status === 'overdue') return 'overdue';
+  if (status === 'due') return 'due';
+  if (status === 'up-to-date') return 'paid';
+  if (status === 'no-lease') return 'vacant';
+  return null; // 'partial' shows under "All" only
+}
+
+function tenantChip(status: TenantDTO['status']): StatusKind {
+  if (status === 'up-to-date') return 'paid';
+  if (status === 'no-lease') return 'vacant';
+  return status;
+}
+
+function daysUntil(iso?: string): number | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return Math.round((d.getTime() - Date.now()) / 86_400_000);
+}
 
 export default function LogPayment(): React.ReactElement {
   const router = useRouter();
 
   const [filter, setFilter] = useState<Filter>('all');
-  const [target, setTarget] = useState<Property | null>(null);
+  const [target, setTarget] = useState<TenantDTO | null>(null);
+
+  const { data: summary = EMPTY_SUMMARY } = usePaymentsSummary();
+  const { data: tenants = [], isLoading } = useTenants();
+  const { data: properties = [] } = useProperties();
+
+  const propById = useMemo(() => {
+    const map = new Map<string, PropertyDTO>();
+    for (const p of properties) map.set(p.id, p);
+    return map;
+  }, [properties]);
 
   const collected = summary.collected;
   const outstanding = summary.overdueAmt + summary.dueAmt;
 
   const counts = useMemo<Record<Filter, number>>(() => {
-    const c: Record<Filter, number> = {
-      all: properties.length,
-      paid: 0,
-      due: 0,
-      overdue: 0,
-      vacant: 0,
-    };
-    properties.forEach((p) => {
-      const st = p.status ?? 'vacant';
-      c[st] += 1;
-    });
+    const c: Record<Filter, number> = { all: tenants.length, paid: 0, due: 0, overdue: 0, vacant: 0 };
+    for (const t of tenants) {
+      const b = bucketOf(t.status);
+      if (b) c[b] += 1;
+    }
     return c;
-  }, []);
+  }, [tenants]);
 
-  const riskProp = useMemo(() => properties.find((p) => p.status === 'overdue'), []);
+  const riskTenant = useMemo(() => tenants.find((t) => t.risk?.band === 'high'), [tenants]);
+  const riskProp = riskTenant?.propertyId ? propById.get(riskTenant.propertyId) : undefined;
 
   const list = useMemo(
-    () => properties.filter((p) => (filter === 'all' ? true : (p.status ?? 'vacant') === filter)),
-    [filter],
+    () => tenants.filter((t) => (filter === 'all' ? true : bucketOf(t.status) === filter)),
+    [tenants, filter],
   );
 
   const activeFilter = FILTERS.find((f) => f.id === filter);
@@ -76,7 +123,7 @@ export default function LogPayment(): React.ReactElement {
     <Screen scroll padded bottomSpace={120}>
       <AppBar
         title="Rent & payments"
-        subtitle="Current cycle · 2025 – 2026"
+        subtitle="Current cycle"
         onBack={() => router.back()}
       />
 
@@ -107,9 +154,15 @@ export default function LogPayment(): React.ReactElement {
       </View>
 
       {/* AI default-prediction banner */}
-      {riskProp && riskProp.tenant ? (
+      {riskTenant ? (
         <AICard
-          onPress={() => router.push(`/properties/${riskProp.id}`)}
+          onPress={() =>
+            router.push(
+              riskTenant.propertyId
+                ? `/properties/${riskTenant.propertyId}`
+                : `/tenants/${riskTenant.id}`,
+            )
+          }
           style={{ marginTop: spacing.md }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
@@ -128,10 +181,10 @@ export default function LogPayment(): React.ReactElement {
             <View style={{ flex: 1, minWidth: 0 }}>
               <AILabel>Default prediction</AILabel>
               <Text variant="bodyStrong" style={{ marginTop: 5 }}>
-                {riskProp.tenant.name} is {riskProp.risk ?? 0}% likely to default
+                {riskTenant.fullName} is {riskTenant.risk?.score ?? 0}% likely to default
               </Text>
               <Text variant="caption" color={colors.muted} style={{ marginTop: 3 }}>
-                {riskProp.address}, {riskProp.area}
+                {riskProp ? `${riskProp.propertyTitle}, ${riskProp.area}` : 'Review this tenant'}
               </Text>
             </View>
             <Icon name="fwd" size={18} color={colors.aiDeep} style={{ marginTop: 4 }} />
@@ -186,26 +239,35 @@ export default function LogPayment(): React.ReactElement {
 
       {/* List / empty */}
       <View style={{ marginTop: spacing.lg }}>
-        {list.length === 0 ? (
+        {isLoading ? (
+          <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : list.length === 0 ? (
           <EmptyState
             icon="checkCircle"
             title="All clear here"
-            message={`No properties match "${activeFilter ? activeFilter.label : ''}".`}
+            message={`No tenants match "${activeFilter ? activeFilter.label : ''}".`}
           />
         ) : (
           <View style={{ gap: spacing.md }}>
-            {list.map((p) => {
-              const st = p.status ?? 'vacant';
-              const actionable = st === 'overdue' || st === 'due';
+            {list.map((t) => {
+              const prop = t.propertyId ? propById.get(t.propertyId) : undefined;
+              const actionable = t.status === 'overdue' || t.status === 'due' || t.status === 'partial';
+              const dd = daysUntil(t.paymentDueDate);
               const days =
-                st === 'overdue' ? p.overdueDays : st === 'due' ? p.lease?.daysToDue : undefined;
+                t.status === 'overdue' && dd != null
+                  ? Math.abs(dd)
+                  : t.status === 'due' && dd != null
+                    ? dd
+                    : undefined;
               return (
-                <Card key={p.id} padding={14}>
+                <Card key={t.id} padding={14}>
                   <Pressable
-                    onPress={() => router.push(`/properties/${p.id}`)}
+                    onPress={() => router.push(`/tenants/${t.id}`)}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
                   >
-                    {st === 'vacant' || !p.tenant ? (
+                    {t.status === 'no-lease' ? (
                       <View
                         style={{
                           width: 46,
@@ -219,11 +281,11 @@ export default function LogPayment(): React.ReactElement {
                         <Icon name="door" size={20} color={colors.muted} />
                       </View>
                     ) : (
-                      <Avatar initials={p.tenant.initials} size={46} />
+                      <Avatar initials={initialsOf(t.fullName)} size={46} />
                     )}
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text variant="bodyStrong" numberOfLines={1}>
-                        {p.tenant ? p.tenant.name : 'No tenant'}
+                        {t.fullName}
                       </Text>
                       <Text
                         variant="caption"
@@ -231,17 +293,18 @@ export default function LogPayment(): React.ReactElement {
                         numberOfLines={1}
                         style={{ marginTop: 1 }}
                       >
-                        {p.area} · {nairaShort(p.rent)}/yr
+                        {prop ? `${prop.area} · ` : ''}
+                        {nairaShort(t.rentAmount ?? 0)}/yr
                       </Text>
                     </View>
-                    <StatusChip status={st} days={days ?? undefined} />
+                    <StatusChip status={tenantChip(t.status)} days={days} />
                   </Pressable>
                   {actionable ? (
                     <Button
-                      title={`Record ${naira(p.rent)} payment`}
+                      title={`Record ${naira(t.rentAmount ?? 0)} payment`}
                       icon="plus"
                       size="sm"
-                      onPress={() => setTarget(p)}
+                      onPress={() => setTarget(t)}
                       style={{ marginTop: spacing.md }}
                     />
                   ) : null}
@@ -253,21 +316,25 @@ export default function LogPayment(): React.ReactElement {
       </View>
 
       {/* Log payment sheet */}
-      <LogPaymentSheet property={target} onClose={() => setTarget(null)} />
+      <LogPaymentSheet
+        tenant={target}
+        property={target?.propertyId ? propById.get(target.propertyId) : undefined}
+        onClose={() => setTarget(null)}
+      />
     </Screen>
   );
 }
 
 interface MethodOption {
-  id: string;
+  id: PaymentMethod;
   label: string;
 }
 
 const METHODS: MethodOption[] = [
   { id: 'cash', label: 'Cash' },
   { id: 'transfer', label: 'Bank transfer' },
-  { id: 'pos', label: 'POS / card' },
-  { id: 'mobile', label: 'Mobile money' },
+  { id: 'card', label: 'POS / card' },
+  { id: 'other', label: 'Mobile / other' },
 ];
 
 const MARK_OPTIONS: { v: string; l: string }[] = [
@@ -276,41 +343,50 @@ const MARK_OPTIONS: { v: string; l: string }[] = [
 ];
 
 interface LogPaymentSheetProps {
-  property: Property | null;
+  tenant: TenantDTO | null;
+  property: PropertyDTO | undefined;
   onClose: () => void;
 }
 
-function LogPaymentSheet({ property, onClose }: LogPaymentSheetProps): React.ReactElement {
+function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): React.ReactElement {
   const { showToast } = useToast();
+  const logPayment = useLogPayment();
 
-  const baseRent = property ? property.rent : 0;
-  const name = property?.tenant ? property.tenant.name : 'No tenant';
-  const where = property ? `${property.address}, ${property.area}` : undefined;
-  const initials = property?.tenant ? property.tenant.initials : '—';
+  const name = tenant?.fullName ?? 'No tenant';
+  const where = property ? `${property.propertyTitle}, ${property.area}` : undefined;
+  const initials = tenant ? initialsOf(tenant.fullName) : '—';
 
-  const [amount, setAmount] = useState(String(baseRent));
-  const [method, setMethod] = useState('transfer');
-  const [period, setPeriod] = useState('2025 – 2026 (annual)');
-  const [date, setDate] = useState('2026-06-02');
+  // A payment needs a leaseId: use the tenant's active lease (works for a first
+  // payment), falling back to the most recent receipt's lease.
+  const { data: paymentsEnvelope } = useQuery<{ items: PaymentReceiptDTO[] }>({
+    queryKey: ['payments', 'tenant', tenant?.id],
+    enabled: Boolean(tenant),
+    queryFn: () =>
+      api.get<{ items: PaymentReceiptDTO[] }>('/payments', { query: { tenantId: tenant!.id } }),
+  });
+  const leaseId = tenant?.leaseId ?? paymentsEnvelope?.items?.[0]?.leaseId;
+
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('transfer');
+  const [period, setPeriod] = useState('Current cycle');
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState('confirmed');
   const [touched, setTouched] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  // Re-seed the amount whenever a new property opens the sheet.
+  // Re-seed the amount whenever a new tenant opens the sheet.
   const seedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (property && seedRef.current !== property.id) {
-      seedRef.current = property.id;
-      setAmount(String(property.rent));
+    if (tenant && seedRef.current !== tenant.id) {
+      seedRef.current = tenant.id;
+      setAmount(String(tenant.rentAmount ?? ''));
       setMethod('transfer');
-      setPeriod('2025 – 2026 (annual)');
-      setDate('2026-06-02');
+      setPeriod('Current cycle');
+      setDate(new Date().toISOString().slice(0, 10));
       setStatus('confirmed');
       setTouched(false);
-      setSubmitting(false);
     }
-    if (!property) seedRef.current = null;
-  }, [property]);
+    if (!tenant) seedRef.current = null;
+  }, [tenant]);
 
   const num = Number(amount.replace(/[^\d]/g, ''));
   const err = !num ? 'Enter an amount' : num < 1000 ? 'Amount looks too small' : '';
@@ -318,16 +394,30 @@ function LogPaymentSheet({ property, onClose }: LogPaymentSheetProps): React.Rea
   function confirm(): void {
     setTouched(true);
     if (err) return;
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      onClose();
-      showToast('Payment logged');
-    }, 1000);
+    if (!leaseId) {
+      showToast('No active lease to log against');
+      return;
+    }
+    logPayment.mutate(
+      {
+        leaseId,
+        amount: num,
+        paidAt: date,
+        method,
+        periodCovered: period,
+      },
+      {
+        onSuccess: () => {
+          onClose();
+          showToast('Payment logged');
+        },
+        onError: () => showToast('Could not log payment'),
+      },
+    );
   }
 
   return (
-    <BottomSheet visible={property !== null} onClose={onClose} title="Log payment" scroll>
+    <BottomSheet visible={tenant !== null} onClose={onClose} title="Log payment" scroll>
       {/* Tenant / property card */}
       <Card
         flat
@@ -496,7 +586,7 @@ function LogPaymentSheet({ property, onClose }: LogPaymentSheetProps): React.Rea
       <Button
         title={`Log ${naira(num)}`}
         onPress={confirm}
-        loading={submitting}
+        loading={logPayment.isPending}
         style={{ marginTop: spacing.lg }}
       />
     </BottomSheet>

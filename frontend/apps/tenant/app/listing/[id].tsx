@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Avatar,
@@ -19,7 +19,30 @@ import {
   useToast,
   type IconName,
 } from '@ile-eko/ui';
-import { AM, getListing, naira, savedIds } from '@/data/mock';
+import {
+  naira,
+  initialsOf,
+  useAuth,
+  useListing,
+  useRecordView,
+  useSaveListing,
+  useUnsaveListing,
+} from '@ile-eko/core';
+
+/** Amenity key → icon + label, mirroring the design's amenity vocabulary. */
+const AMENITIES: Record<string, { ic: IconName; label: string }> = {
+  water: { ic: 'droplet', label: 'Borehole / water' },
+  power: { ic: 'bolt', label: '24/7 power' },
+  security: { ic: 'shield', label: 'Security' },
+  parking: { ic: 'car', label: 'Parking' },
+  furnished: { ic: 'sofa', label: 'Furnished' },
+  kitchen: { ic: 'home', label: 'Fitted kitchen' },
+  wifi: { ic: 'wifi', label: 'Wi-Fi ready' },
+};
+
+function amenityMeta(key: string): { ic: IconName; label: string } {
+  return AMENITIES[key] ?? { ic: 'checkCircle', label: key };
+}
 
 interface FactProps {
   icon: IconName;
@@ -55,25 +78,52 @@ export default function ListingDetail(): React.ReactElement | null {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const l = id ? getListing(id) : undefined;
-  const [saved, setSaved] = useState<boolean>(id ? savedIds.includes(id) : false);
+  const { data: l, isLoading } = useListing(id);
+  const recordView = useRecordView();
+  const saveListing = useSaveListing();
+  const unsaveListing = useUnsaveListing();
+
+  // Record a marketplace view once per listing open (fire-and-forget).
+  useEffect(() => {
+    if (id) recordView.mutate({ id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!l) return null;
 
-  const initials = l.landlord
-    .split(' ')
-    .map((w) => w[0] ?? '')
-    .join('')
-    .slice(0, 2);
+  const saved = l.saved ?? false;
+  const initials = initialsOf(l.landlordName);
 
-  function toggleSave(): void {
-    setSaved((prev) => {
-      const next = !prev;
-      showToast(next ? 'Saved to your shortlist' : 'Removed from shortlist', 'heart');
-      return next;
-    });
-  }
+  const toggleSave = (): void => {
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (saved) {
+      unsaveListing.mutate(l.id);
+      showToast('Removed from shortlist', 'heart');
+    } else {
+      saveListing.mutate(l.id);
+      showToast('Saved to your shortlist', 'heart');
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -162,55 +212,59 @@ export default function ListingDetail(): React.ReactElement | null {
           </Card>
 
           {/* Amenities */}
-          <Text variant="title" style={{ marginTop: spacing['2xl'], marginBottom: spacing.md }}>
-            Amenities
-          </Text>
-          <Card padding={16}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {l.amenities.map((a) => {
-                const am = AM[a];
-                return (
-                  <View
-                    key={a}
-                    style={{
-                      width: '50%',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                      paddingVertical: 7,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        backgroundColor: colors.primaryTint,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Icon name={am.ic} size={17} color={colors.primary} />
-                    </View>
-                    <Text
-                      variant="bodyMedium"
-                      style={{ fontSize: 13.5, flex: 1 }}
-                      numberOfLines={2}
-                    >
-                      {am.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </Card>
+          {l.amenities.length > 0 ? (
+            <>
+              <Text variant="title" style={{ marginTop: spacing['2xl'], marginBottom: spacing.md }}>
+                Amenities
+              </Text>
+              <Card padding={16}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {l.amenities.map((a) => {
+                    const am = amenityMeta(a);
+                    return (
+                      <View
+                        key={a}
+                        style={{
+                          width: '50%',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
+                          paddingVertical: 7,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 10,
+                            backgroundColor: colors.primaryTint,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Icon name={am.ic} size={17} color={colors.primary} />
+                        </View>
+                        <Text
+                          variant="bodyMedium"
+                          style={{ fontSize: 13.5, flex: 1 }}
+                          numberOfLines={2}
+                        >
+                          {am.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </Card>
+            </>
+          ) : null}
 
           {/* Description */}
           <Text variant="title" style={{ marginTop: spacing['2xl'], marginBottom: spacing.sm }}>
             About this home
           </Text>
           <Text variant="body" color={colors.muted} style={{ fontSize: 14.5, lineHeight: 23 }}>
-            {l.desc}
+            {l.description}
           </Text>
 
           {/* Location */}
@@ -272,7 +326,7 @@ export default function ListingDetail(): React.ReactElement | null {
                     style={{ fontSize: 14.5, marginTop: 2 }}
                     numberOfLines={1}
                   >
-                    {l.landlord}
+                    {l.landlordName}
                   </Text>
                 </View>
               </View>

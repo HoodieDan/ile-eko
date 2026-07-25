@@ -1,8 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Redirect, useRouter } from 'expo-router';
 import { Screen, Text, Chip, Icon, PropertyThumb, EmptyState, useToast, colors } from '@ile-eko/ui';
-import { listings, savedIds, naira, type Listing } from '@/data/mock';
+import {
+  naira,
+  useAuth,
+  useSavedListings,
+  useUnsaveListing,
+  type ListingSummary,
+} from '@ile-eko/core';
 
 interface SaveHeartProps {
   on: boolean;
@@ -42,7 +48,7 @@ function SaveHeart({ on, onToggle }: SaveHeartProps): React.ReactElement {
 }
 
 interface SavedCardProps {
-  listing: Listing;
+  listing: ListingSummary;
   onOpen: () => void;
   onToggleSave: () => void;
 }
@@ -134,19 +140,21 @@ function Fact({
   );
 }
 
-export default function Saved(): React.ReactElement {
+export default function Saved(): React.ReactElement | null {
+  const { status } = useAuth();
+  if (status === 'loading') return null;
+  if (status !== 'authenticated') return <Redirect href="/(auth)/login" />;
+  return <SavedContent />;
+}
+
+function SavedContent(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
-  const [saved, setSaved] = useState<Set<string>>(() => new Set(savedIds));
+  const { data: savedListings = [], isLoading } = useSavedListings();
+  const unsaveListing = useUnsaveListing();
 
-  const savedListings = useMemo(() => listings.filter((l) => saved.has(l.id)), [saved]);
-
-  const unsave = (listing: Listing): void => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      next.delete(listing.id);
-      return next;
-    });
+  const unsave = (listing: ListingSummary): void => {
+    unsaveListing.mutate(listing.id);
     showToast(`Removed ${listing.title} from saved`, 'heart');
   };
 
@@ -158,7 +166,11 @@ export default function Saved(): React.ReactElement {
           {savedListings.length} {savedListings.length === 1 ? 'home' : 'homes'} shortlisted
         </Text>
 
-        {savedListings.length === 0 ? (
+        {isLoading ? (
+          <View style={{ paddingTop: 60, alignItems: 'center' }}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : savedListings.length === 0 ? (
           <EmptyState
             icon="heart"
             title="No saved homes yet"

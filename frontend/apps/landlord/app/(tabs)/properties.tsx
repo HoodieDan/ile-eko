@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -12,14 +12,12 @@ import {
   EmptyState,
   FAB,
   FABHost,
-  Icon,
   colors,
   type StatusKind,
 } from '@ile-eko/ui';
-import { allProperties, naira, nairaShort, type Property } from '@/data/mock';
+import { useProperties, naira, nairaShort, type PropertyDTO } from '@ile-eko/core';
 
-type Occupancy = NonNullable<Property['occupancy']>;
-type PropertyFilter = 'all' | Occupancy;
+type PropertyFilter = 'all' | PropertyDTO['status'];
 
 interface FilterDef {
   id: PropertyFilter;
@@ -30,25 +28,19 @@ const FILTERS: FilterDef[] = [
   { id: 'all', label: 'All' },
   { id: 'occupied', label: 'Occupied' },
   { id: 'vacant', label: 'Vacant' },
-  { id: 'mixed', label: 'Multi-unit' },
+  { id: 'partial', label: 'Multi-unit' },
 ];
 
-/** Counts over allProperties by occupancy; "all" is the total. */
-function buildCounts(): Record<PropertyFilter, number> {
-  const counts: Record<PropertyFilter, number> = {
-    all: allProperties.length,
-    occupied: 0,
-    vacant: 0,
-    mixed: 0,
-  };
-  for (const p of allProperties) {
-    if (p.occupancy) counts[p.occupancy] += 1;
-  }
-  return counts;
+/** Occupancy → the payment-style chip the UI renders. */
+function occupancyChip(status: PropertyDTO['status']): StatusKind {
+  if (status === 'vacant') return 'vacant';
+  if (status === 'partial') return 'due';
+  return 'paid';
 }
 
-function matchesQuery(p: Property, query: string): boolean {
-  const haystack = `${p.address} ${p.area} ${p.lga ?? ''} ${p.type}`.toLowerCase();
+function matchesQuery(p: PropertyDTO, query: string): boolean {
+  const haystack =
+    `${p.propertyTitle} ${p.address} ${p.area} ${p.lga} ${p.propertyType}`.toLowerCase();
   return haystack.includes(query.toLowerCase());
 }
 
@@ -57,10 +49,21 @@ export default function PropertiesScreen(): React.ReactElement {
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<PropertyFilter>('all');
 
-  const counts = React.useMemo(buildCounts, []);
+  const { data: properties = [], isLoading } = useProperties();
 
-  const list = allProperties.filter(
-    (p) => (filter === 'all' || p.occupancy === filter) && matchesQuery(p, query),
+  const counts = React.useMemo<Record<PropertyFilter, number>>(() => {
+    const c: Record<PropertyFilter, number> = {
+      all: properties.length,
+      occupied: 0,
+      vacant: 0,
+      partial: 0,
+    };
+    for (const p of properties) c[p.status] += 1;
+    return c;
+  }, [properties]);
+
+  const list = properties.filter(
+    (p) => (filter === 'all' || p.status === filter) && matchesQuery(p, query),
   );
 
   return (
@@ -132,83 +135,84 @@ export default function PropertiesScreen(): React.ReactElement {
         </View>
 
         <View style={{ marginTop: 18, gap: 12 }}>
-          {list.length === 0 ? (
+          {isLoading ? (
+            <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : list.length === 0 ? (
             <EmptyState
               icon="search"
               title="No matches"
-              message={`Nothing found for "${query}".`}
+              message={query ? `Nothing found for "${query}".` : 'No properties yet.'}
             />
           ) : (
-            list.map((p) => {
-              const occupancy: StatusKind = p.occupancy ?? 'vacant';
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => router.push(`/properties/${p.id}`)}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    gap: 13,
-                    backgroundColor: colors.surface,
-                    borderRadius: 18,
-                    padding: 11,
-                    transform: [{ scale: pressed ? 0.985 : 1 }],
-                  })}
-                >
-                  <PropertyThumb size={64} radius={13} />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                      }}
-                    >
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text
-                          variant="title"
-                          style={{ fontSize: 15.5, lineHeight: 19 }}
-                          numberOfLines={1}
-                        >
-                          {p.address}
-                        </Text>
-                        <Text
-                          variant="caption"
-                          color={colors.muted}
-                          numberOfLines={1}
-                          style={{ marginTop: 2 }}
-                        >
-                          {p.area} · {p.lga}
-                        </Text>
-                      </View>
-                      <StatusChip status={occupancy} />
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginTop: 9,
-                      }}
-                    >
-                      <Text variant="bodyStrong" style={{ fontSize: 14.5 }}>
-                        {p.multiUnit ? nairaShort(p.rent) : naira(p.rent)}
-                        <Text variant="caption" color={colors.muted}>
-                          {' '}
-                          /yr
-                        </Text>
+            list.map((p) => (
+              <Pressable
+                key={p.id}
+                onPress={() => router.push(`/properties/${p.id}`)}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 13,
+                  backgroundColor: colors.surface,
+                  borderRadius: 18,
+                  padding: 11,
+                  transform: [{ scale: pressed ? 0.985 : 1 }],
+                })}
+              >
+                <PropertyThumb size={64} radius={13} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        variant="title"
+                        style={{ fontSize: 15.5, lineHeight: 19 }}
+                        numberOfLines={1}
+                      >
+                        {p.propertyTitle}
                       </Text>
-                      {p.multiUnit ? (
-                        <Chip tone="neutral" icon="layers" label={`${p.unitCount ?? 0} units`} />
-                      ) : (
-                        <Chip tone="neutral" icon="home" label={p.type} />
-                      )}
+                      <Text
+                        variant="caption"
+                        color={colors.muted}
+                        numberOfLines={1}
+                        style={{ marginTop: 2 }}
+                      >
+                        {p.area} · {p.lga}
+                      </Text>
                     </View>
+                    <StatusChip status={occupancyChip(p.status)} />
                   </View>
-                </Pressable>
-              );
-            })
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 9,
+                    }}
+                  >
+                    <Text variant="bodyStrong" style={{ fontSize: 14.5 }}>
+                      {p.hasUnits ? nairaShort(p.rentAmount ?? 0) : naira(p.rentAmount ?? 0)}
+                      <Text variant="caption" color={colors.muted}>
+                        {' '}
+                        /yr
+                      </Text>
+                    </Text>
+                    {p.hasUnits ? (
+                      <Chip tone="neutral" icon="layers" label={`${p.unitCount} units`} />
+                    ) : (
+                      <Chip tone="neutral" icon="home" label={p.propertyType} />
+                    )}
+                  </View>
+                </View>
+              </Pressable>
+            ))
           )}
         </View>
       </View>

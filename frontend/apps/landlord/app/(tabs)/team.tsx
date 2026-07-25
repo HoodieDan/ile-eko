@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -11,6 +11,7 @@ import {
   Button,
   Icon,
   Divider,
+  EmptyState,
   useToast,
   colors,
   spacing,
@@ -18,28 +19,38 @@ import {
   type ChipTone,
   type IconName,
 } from '@ile-eko/ui';
-import { caretakers, activityLog, type Caretaker } from '@/data/mock';
+import {
+  useCaretakers,
+  useActivity,
+  initialsOf,
+  timeAgo,
+  type CaretakerSummaryDTO,
+} from '@ile-eko/core';
 
-const STATUS_META: Record<Caretaker['status'], { tone: ChipTone; icon: IconName; label: string }> =
-  {
-    active: { tone: 'ok', icon: 'check', label: 'Active' },
-    pending: { tone: 'warn', icon: 'clock', label: 'Pending' },
-    revoked: { tone: 'neutral', icon: 'x', label: 'Revoked' },
-  };
+const STATUS_META: Record<
+  CaretakerSummaryDTO['status'],
+  { tone: ChipTone; icon: IconName; label: string }
+> = {
+  active: { tone: 'ok', icon: 'check', label: 'Active' },
+  pending: { tone: 'warn', icon: 'clock', label: 'Pending' },
+  revoked: { tone: 'neutral', icon: 'x', label: 'Revoked' },
+};
 
-function caretakerSubtitle(c: Caretaker): string {
+function caretakerSubtitle(c: CaretakerSummaryDTO): string {
   if (c.status === 'pending') return 'Invite sent · awaiting acceptance';
   if (c.status === 'revoked') return 'Access removed';
   const propLabel = `${c.propertyCount} ${c.propertyCount === 1 ? 'property' : 'properties'}`;
   const shown = c.areas.slice(0, 2).join(', ');
   const more = c.areas.length > 2 ? '…' : '';
-  return `${propLabel} · ${shown}${more}`;
+  return shown ? `${propLabel} · ${shown}${more}` : propLabel;
 }
 
 export default function TeamTab(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
-  const recent = activityLog.slice(0, 3);
+  const { data: caretakers = [], isLoading } = useCaretakers();
+  const { data: activity = [] } = useActivity();
+  const recent = activity.slice(0, 3);
 
   return (
     <Screen scroll padded bottomSpace={120}>
@@ -63,40 +74,52 @@ export default function TeamTab(): React.ReactElement {
       <View style={{ marginTop: spacing.xl, marginBottom: 11 }}>
         <Eyebrow>{`Caretakers · ${caretakers.length}`}</Eyebrow>
       </View>
-      <View style={{ gap: spacing.md }}>
-        {caretakers.map((c) => {
-          const meta = STATUS_META[c.status];
-          return (
-            <Card
-              key={c.id}
-              padding={15}
-              onPress={() => showToast(`Editing ${c.name}`)}
-              style={{ opacity: c.status === 'revoked' ? 0.62 : 1 }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-                <Avatar initials={c.initials} size={48} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Text variant="h3" numberOfLines={1} style={{ flex: 1 }}>
-                      {c.name}
+      {isLoading ? (
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : caretakers.length === 0 ? (
+        <EmptyState
+          icon="users"
+          title="No caretakers yet"
+          message="Invite a caretaker to help manage your properties on the ground."
+        />
+      ) : (
+        <View style={{ gap: spacing.md }}>
+          {caretakers.map((c) => {
+            const meta = STATUS_META[c.status];
+            return (
+              <Card
+                key={c.id}
+                padding={15}
+                onPress={() => showToast(`Editing ${c.name}`)}
+                style={{ opacity: c.status === 'revoked' ? 0.62 : 1 }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
+                  <Avatar initials={initialsOf(c.name)} size={48} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                      <Text variant="h3" numberOfLines={1} style={{ flex: 1 }}>
+                        {c.name}
+                      </Text>
+                      <Chip tone={meta.tone} icon={meta.icon} label={meta.label} />
+                    </View>
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      numberOfLines={1}
+                      style={{ marginTop: 3 }}
+                    >
+                      {caretakerSubtitle(c)}
                     </Text>
-                    <Chip tone={meta.tone} icon={meta.icon} label={meta.label} />
                   </View>
-                  <Text
-                    variant="caption"
-                    color={colors.muted}
-                    numberOfLines={1}
-                    style={{ marginTop: 3 }}
-                  >
-                    {caretakerSubtitle(c)}
-                  </Text>
+                  <Icon name="fwd" size={18} color={colors.muted} />
                 </View>
-                <Icon name="fwd" size={18} color={colors.muted} />
-              </View>
-            </Card>
-          );
-        })}
-      </View>
+              </Card>
+            );
+          })}
+        </View>
+      )}
 
       {/* Oversight */}
       <View style={{ marginTop: spacing['2xl'], marginBottom: 11 }}>
@@ -144,7 +167,7 @@ export default function TeamTab(): React.ReactElement {
             <View style={{ flex: 1 }}>
               <Text variant="bodyStrong">Preview caretaker view</Text>
               <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }}>
-                See exactly what Musa can do
+                See exactly what caretakers can do
               </Text>
             </View>
             <Icon name="fwd" size={18} color={colors.muted} />
@@ -169,53 +192,61 @@ export default function TeamTab(): React.ReactElement {
           </Text>
         </Pressable>
       </View>
-      <Card padding={0} style={{ paddingHorizontal: spacing.lg }}>
-        {recent.map((a, i) => (
-          <View key={a.id}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: spacing.md,
-                paddingVertical: 13,
-              }}
-            >
-              <Avatar initials={a.initials} size={34} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text variant="captionStrong" style={{ fontSize: 13.5 }}>
-                  {a.action}
-                </Text>
-                <Text
-                  variant="caption"
-                  color={colors.muted}
-                  numberOfLines={1}
-                  style={{ marginTop: 1 }}
-                >
-                  {a.detail}
-                </Text>
-                {a.flag ? (
-                  <View
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }}
+      {recent.length === 0 ? (
+        <Card padding={15}>
+          <Text variant="caption" color={colors.muted}>
+            No activity yet.
+          </Text>
+        </Card>
+      ) : (
+        <Card padding={0} style={{ paddingHorizontal: spacing.lg }}>
+          {recent.map((a, i) => (
+            <View key={a.id}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: spacing.md,
+                  paddingVertical: 13,
+                }}
+              >
+                <Avatar initials={initialsOf(a.actorName)} size={34} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text variant="captionStrong" style={{ fontSize: 13.5 }}>
+                    {a.description}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    color={colors.muted}
+                    numberOfLines={1}
+                    style={{ marginTop: 1 }}
                   >
-                    <Icon name="spark" size={12} color={colors.aiDeep} fill />
-                    <Text
-                      variant="captionStrong"
-                      color={colors.aiDeep}
-                      style={{ fontSize: 11.5, flex: 1 }}
+                    {a.actorName}
+                  </Text>
+                  {a.flag ? (
+                    <View
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }}
                     >
-                      {a.flag}
-                    </Text>
-                  </View>
-                ) : null}
+                      <Icon name="spark" size={12} color={colors.aiDeep} fill />
+                      <Text
+                        variant="captionStrong"
+                        color={colors.aiDeep}
+                        style={{ fontSize: 11.5, flex: 1 }}
+                      >
+                        {a.flag}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text variant="caption" color={colors.muted} style={{ fontSize: 11.5 }}>
+                  {timeAgo(a.createdAt)}
+                </Text>
               </View>
-              <Text variant="caption" color={colors.muted} style={{ fontSize: 11.5 }}>
-                {a.ago}
-              </Text>
+              {i < recent.length - 1 ? <Divider /> : null}
             </View>
-            {i < recent.length - 1 ? <Divider /> : null}
-          </View>
-        ))}
-      </Card>
+          ))}
+        </Card>
+      )}
     </Screen>
   );
 }

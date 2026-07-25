@@ -13,15 +13,7 @@ import {
   radii,
   spacing,
 } from '@ile-eko/ui';
-
-interface Brief {
-  label: string;
-  title: string;
-  body: string;
-  cta: string;
-  onTap: () => void;
-  warn?: boolean;
-}
+import { useAIChat, useBriefs } from '@ile-eko/core';
 
 interface Message {
   role: 'user' | 'ai';
@@ -35,64 +27,45 @@ const PROMPTS: readonly string[] = [
   "Who hasn't paid yet?",
 ];
 
-const ANSWERS: Record<string, string> = {
-  'How much did my Lekki properties make this year?':
-    'Your Lekki Phase 1 flat (14 Admiralty Way) brought in ₦2,500,000 this cycle — paid in full by Chinedu Okafor in March. That’s your 2nd-highest single unit after the Ikoyi duplex (₦4,500,000). At renewal, smart pricing suggests ₦2,800,000 (+12%).',
-  'Which tenant pays best?':
-    'Funke Adeyemi (Ikoyi) is your most reliable — ₦4,500,000 paid in advance every year since 2022, never late. Chinedu Okafor (Lekki) is close behind. Tunde Akinola (Yaba) is weakest: currently 14 days overdue with a history of late payment.',
-  'Summarise caretaker activity today.':
-    'Musa Ibrahim logged 2 payments today — ₦1,500,000 for Flat 1 and a ₦750,000 part-payment for Flat 2 (Harmony Court) — and uploaded 4 inspection photos for the Gbagada flat. ⚠️ The part-payment was logged without a receipt, so I’d review that one before confirming.',
-  "Who hasn't paid yet?":
-    'One tenant is overdue: Tunde Akinola at 8 Herbert Macaulay Way, Yaba — 14 days late on ₦1,200,000 (78% default risk). Ngozi Eze (Surulere) is due in 21 days.',
-};
-
-const FALLBACK_ANSWER =
-  'I can answer from your live portfolio — rent, tenants, caretaker activity and pricing. Try one of the suggested questions.';
+/** A brief is "flagged" when its kind reads like a risk/alert. */
+function isWarn(kind: string): boolean {
+  return /flag|risk|overdue|alert/i.test(kind);
+}
 
 export default function AITab(): React.ReactElement {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
 
-  const briefs: Brief[] = [
-    {
-      label: 'Rent due',
-      title: '₦1.65M outstanding',
-      body: 'Across 2 tenants this cycle — ₦1.2M overdue in Yaba.',
-      cta: 'Review',
-      onTap: () => router.push('/payments/log'),
-    },
-    {
-      label: 'Flagged',
-      title: 'Receipt missing',
-      body: 'A ₦750k part-payment was logged without a receipt.',
-      cta: 'Open log',
-      onTap: () => router.push('/activity'),
-      warn: true,
-    },
-    {
-      label: 'Occupancy',
-      title: '1 unit vacant',
-      body: 'Flat 3, Harmony Court — ~19% below market.',
-      cta: 'View',
-      onTap: () => router.push('/properties/p6'),
-    },
-  ];
+  const { data: briefs = [] } = useBriefs();
+  const chat = useAIChat();
 
-  // Seed one example exchange so the assistant opens with a substantive answer.
-  const [thread, setThread] = useState<Message[]>([
-    { role: 'user', text: 'Summarise caretaker activity today.' },
-    { role: 'ai', text: ANSWERS['Summarise caretaker activity today.'] ?? FALLBACK_ANSWER },
-  ]);
-  const [thinking, setThinking] = useState(false);
+  const [thread, setThread] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
 
-  const ask = (q: string): void => {
-    setThread((t) => [...t, { role: 'user', text: q }]);
-    setThinking(true);
-    setTimeout(() => {
-      setThinking(false);
-      setThread((t) => [...t, { role: 'ai', text: ANSWERS[q] ?? FALLBACK_ANSWER }]);
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 1100);
+  const thinking = chat.isPending;
+
+  const send = (raw: string): void => {
+    const text = raw.trim();
+    if (!text || chat.isPending) return;
+    setThread((t) => [...t, { role: 'user', text }]);
+    setInput('');
+    chat.mutate(
+      { message: text, ...(conversationId ? { conversationId } : {}) },
+      {
+        onSuccess: (res) => {
+          setConversationId(res.conversationId);
+          setThread((t) => [...t, { role: 'ai', text: res.message }]);
+          scrollRef.current?.scrollToEnd({ animated: true });
+        },
+        onError: () => {
+          setThread((t) => [
+            ...t,
+            { role: 'ai', text: 'Sorry, I could not reach the assistant just now.' },
+          ]);
+        },
+      },
+    );
   };
 
   return (
@@ -121,55 +94,72 @@ export default function AITab(): React.ReactElement {
         </View>
 
         {/* Proactive briefing strip */}
-        <Eyebrow style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
-          Generated for you · Mon 2 Jun
-        </Eyebrow>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginHorizontal: -20 }}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            gap: spacing.md,
-            paddingBottom: spacing.xs,
-          }}
-        >
-          {briefs.map((b) => (
-            <AICard key={b.label} onPress={b.onTap} style={{ width: 212 }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <AILabel>{b.label}</AILabel>
-                {b.warn ? (
+        {briefs.length > 0 ? (
+          <>
+            <Eyebrow style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
+              Generated for you
+            </Eyebrow>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -20 }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                gap: spacing.md,
+                paddingBottom: spacing.xs,
+              }}
+            >
+              {briefs.map((b, i) => (
+                <AICard
+                  key={`${b.kind}-${i}`}
+                  onPress={b.deepLink ? () => router.push(b.deepLink as never) : undefined}
+                  style={{ width: 212 }}
+                >
                   <View
                     style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      backgroundColor: colors.danger,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
-                  />
-                ) : null}
-              </View>
-              <Text variant="title" color={colors.ink} style={{ fontSize: 16, marginTop: 10 }}>
-                {b.title}
-              </Text>
-              <Text variant="caption" color={colors.muted} style={{ marginTop: 5 }}>
-                {b.body}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 11 }}>
-                <Text variant="captionStrong" color={colors.aiDeep}>
-                  {b.cta}
-                </Text>
-                <Icon name="fwd" size={14} color={colors.aiDeep} />
-              </View>
-            </AICard>
-          ))}
-        </ScrollView>
+                  >
+                    <AILabel>{b.kind}</AILabel>
+                    {isWarn(b.kind) ? (
+                      <View
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 999,
+                          backgroundColor: colors.danger,
+                        }}
+                      />
+                    ) : null}
+                  </View>
+                  <Text variant="title" color={colors.ink} style={{ fontSize: 16, marginTop: 10 }}>
+                    {b.title}
+                  </Text>
+                  <Text variant="caption" color={colors.muted} style={{ marginTop: 5 }}>
+                    {b.body}
+                  </Text>
+                  {b.deepLink ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        marginTop: 11,
+                      }}
+                    >
+                      <Text variant="captionStrong" color={colors.aiDeep}>
+                        View
+                      </Text>
+                      <Icon name="fwd" size={14} color={colors.aiDeep} />
+                    </View>
+                  ) : null}
+                </AICard>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
 
         {/* Conversation thread */}
         <Text
@@ -179,6 +169,12 @@ export default function AITab(): React.ReactElement {
         >
           Conversation
         </Text>
+        {thread.length === 0 && !thinking ? (
+          <Text variant="caption" color={colors.muted} style={{ lineHeight: 20 }}>
+            Ask about rent, tenants, caretaker activity or pricing — I answer from your live
+            portfolio.
+          </Text>
+        ) : null}
         <ScrollView ref={scrollRef} scrollEnabled={false}>
           <View style={{ gap: spacing.sm }}>
             {thread.map((m, i) => {
@@ -247,7 +243,7 @@ export default function AITab(): React.ReactElement {
           {PROMPTS.map((p) => (
             <Pressable
               key={p}
-              onPress={() => ask(p)}
+              onPress={() => send(p)}
               style={{
                 minHeight: 42,
                 justifyContent: 'center',
@@ -285,15 +281,11 @@ export default function AITab(): React.ReactElement {
         }}
       >
         <View style={{ flex: 1 }}>
-          <Input
-            value=""
-            onChangeText={() => undefined}
-            placeholder="Ask your assistant…"
-            editable={false}
-          />
+          <Input value={input} onChangeText={setInput} placeholder="Ask your assistant…" />
         </View>
         <Pressable
           accessibilityLabel="Send"
+          onPress={() => send(input)}
           style={{
             width: 40,
             height: 40,

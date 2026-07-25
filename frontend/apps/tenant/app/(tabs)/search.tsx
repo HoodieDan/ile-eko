@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   Screen,
@@ -14,56 +14,15 @@ import {
   useToast,
 } from '@ile-eko/ui';
 import {
-  listings,
   naira,
   nairaShort,
-  areas,
-  AM,
-  savedIds,
-  type AmenityKey,
-  type Listing,
-} from '@/data/mock';
-
-/** Parsed natural-language filters. */
-interface ParsedFilters {
-  area?: string;
-  beds?: number;
-  budget?: number;
-  amenity?: AmenityKey;
-}
-
-const AMENITY_PATTERNS: [AmenityKey, RegExp][] = [
-  ['water', /water|borehole/],
-  ['power', /power|light|electric/],
-  ['security', /security|secure|gated/],
-  ['parking', /parking|car/],
-  ['furnished', /furnish/],
-];
-
-/** Natural-language query parser — mirrors the design's parseQuery. */
-function parseQuery(q: string): ParsedFilters {
-  const s = (q || '').toLowerCase();
-  const f: ParsedFilters = {};
-
-  const area = areas.find((a) => {
-    const first = a.toLowerCase().split(' ')[0];
-    return first !== undefined && s.includes(first);
-  });
-  if (area) f.area = area;
-
-  const bed = s.match(/(\d+)\s*-?\s*bed/);
-  if (bed && bed[1] !== undefined) f.beds = Number(bed[1]);
-
-  const bud = s.match(/(?:under|below|max|up to)?\s*₦?\s*([\d.]+)\s*(k|m)/);
-  if (bud && bud[1] !== undefined && bud[2] !== undefined) {
-    f.budget = Math.round(parseFloat(bud[1]) * (bud[2] === 'm' ? 1e6 : 1e3));
-  }
-
-  const am = AMENITY_PATTERNS.find(([, re]) => re.test(s));
-  if (am) f.amenity = am[0];
-
-  return f;
-}
+  useAuth,
+  useListings,
+  useSearch,
+  useSaveListing,
+  useUnsaveListing,
+  type ListingSummary,
+} from '@ile-eko/core';
 
 /** Image-forward listing card matching the explore feed: thumb + heart + meta. */
 function ListingCard({
@@ -72,10 +31,10 @@ function ListingCard({
   onOpen,
   onToggleSave,
 }: {
-  l: Listing;
+  l: ListingSummary;
   saved: boolean;
   onOpen: (id: string) => void;
-  onToggleSave: (id: string) => void;
+  onToggleSave: (l: ListingSummary) => void;
 }): React.ReactElement {
   return (
     <Card padding={0} onPress={() => onOpen(l.id)} style={{ overflow: 'hidden' }}>
@@ -92,7 +51,7 @@ function ListingCard({
           </View>
         ) : null}
         <Pressable
-          onPress={() => onToggleSave(l.id)}
+          onPress={() => onToggleSave(l)}
           hitSlop={8}
           style={{
             position: 'absolute',
@@ -208,57 +167,73 @@ function FilterPill({
 export default function Search(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ q?: string }>();
   const initialQuery = typeof params.q === 'string' ? params.q : '';
 
   const [q, setQ] = useState(initialQuery);
-  const [filters, setFilters] = useState<ParsedFilters>(() => parseQuery(initialQuery));
-  const [saved, setSaved] = useState<Set<string>>(() => new Set(savedIds));
+  const [searched, setSearched] = useState(false);
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
-  const run = (text: string): void => {
+  const search = useSearch();
+  const { data: allListings = [], isLoading: listingsLoading } = useListings();
+  const saveListing = useSaveListing();
+  const unsaveListing = useUnsaveListing();
+
+  // Auto-run a search when arriving with a ?q= query (e.g. a quick chip on Explore).
+  useEffect(() => {
+    if (initialQuery.trim()) {
+      setSearched(true);
+      search.mutate(initialQuery.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const reset = (): void => {
+    setQ('');
+    setSearched(false);
+    setOverrides({});
+    search.reset();
+  };
+
+  const runSearch = (text: string): void => {
+    const query = text.trim();
     setQ(text);
-    setFilters(parseQuery(text));
+    if (!query) {
+      reset();
+      return;
+    }
+    setSearched(true);
+    setOverrides({});
+    search.mutate(query);
   };
 
-  const clearKey = (k: keyof ParsedFilters): void => {
-    setFilters((f) => {
-      const n = { ...f };
-      delete n[k];
-      return n;
-    });
+  const isSaved = (l: ListingSummary): boolean => overrides[l.id] ?? l.saved ?? false;
+
+  const toggleSave = (l: ListingSummary): void => {
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
+    const currently = isSaved(l);
+    setOverrides((o) => ({ ...o, [l.id]: !currently }));
+    if (currently) {
+      unsaveListing.mutate(l.id);
+      showToast('Removed from saved', 'heart');
+    } else {
+      saveListing.mutate(l.id);
+      showToast('Saved to your shortlist', 'heart');
+    }
   };
 
-  const toggleSave = (id: string): void => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        showToast('Removed from saved', 'heart');
-      } else {
-        next.add(id);
-        showToast('Saved to your shortlist', 'heart');
-      }
-      return next;
-    });
-  };
+  const filters = searched ? search.data?.filters : undefined;
+  const results = searched ? (search.data?.results ?? []) : allListings;
+  const loading = searched ? search.isPending : listingsLoading;
 
-  const results = useMemo(
-    () =>
-      listings.filter(
-        (l) =>
-          (!filters.area || l.area === filters.area) &&
-          (!filters.beds || l.beds >= filters.beds) &&
-          (!filters.budget || l.rent <= filters.budget) &&
-          (!filters.amenity || l.amenities.includes(filters.amenity)),
-      ),
-    [filters],
-  );
-
-  const chips: { k: keyof ParsedFilters; label: string }[] = [];
-  if (filters.area) chips.push({ k: 'area', label: filters.area });
-  if (filters.beds) chips.push({ k: 'beds', label: `${filters.beds}+ beds` });
-  if (filters.budget) chips.push({ k: 'budget', label: `≤ ${nairaShort(filters.budget)}` });
-  if (filters.amenity) chips.push({ k: 'amenity', label: AM[filters.amenity].label });
+  const chips: { key: string; label: string }[] = [];
+  if (filters?.area) chips.push({ key: 'area', label: filters.area });
+  if (filters?.beds) chips.push({ key: 'beds', label: `${filters.beds}+ beds` });
+  if (filters?.maxPrice) chips.push({ key: 'maxPrice', label: `≤ ${nairaShort(filters.maxPrice)}` });
 
   return (
     <Screen bottomSpace={120}>
@@ -291,7 +266,7 @@ export default function Search(): React.ReactElement {
             autoFocus
             value={q}
             onChangeText={setQ}
-            onSubmitEditing={() => run(q)}
+            onSubmitEditing={() => runSearch(q)}
             returnKeyType="search"
             placeholder="Describe your ideal home…"
             placeholderTextColor="rgba(90,106,98,0.65)"
@@ -318,40 +293,52 @@ export default function Search(): React.ReactElement {
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
               {chips.map((c) => (
-                <FilterPill key={c.k} label={c.label} onClear={() => clearKey(c.k)} />
+                <FilterPill key={c.key} label={c.label} onClear={reset} />
               ))}
             </View>
           </>
         ) : null}
 
-        {/* Result count */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 13,
-          }}
-        >
-          <Text variant="bodyStrong" style={{ fontSize: 15 }}>
-            {results.length} {results.length === 1 ? 'home' : 'homes'}
+        {search.data?.degraded ? (
+          <Text variant="caption" color={colors.muted} style={{ marginBottom: 12 }}>
+            Showing keyword matches — smart search is briefly unavailable.
           </Text>
-          {chips.length > 0 ? (
-            <Pressable onPress={() => run('')} hitSlop={8}>
-              <Text variant="captionStrong" color={colors.primary} style={{ fontSize: 13 }}>
-                Clear
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
+        ) : null}
+
+        {/* Result count */}
+        {loading ? null : (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 13,
+            }}
+          >
+            <Text variant="bodyStrong" style={{ fontSize: 15 }}>
+              {results.length} {results.length === 1 ? 'home' : 'homes'}
+            </Text>
+            {searched ? (
+              <Pressable onPress={reset} hitSlop={8}>
+                <Text variant="captionStrong" color={colors.primary} style={{ fontSize: 13 }}>
+                  Clear
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        )}
 
         {/* Results */}
-        {results.length === 0 ? (
+        {loading ? (
+          <View style={{ paddingTop: 40, alignItems: 'center' }}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : results.length === 0 ? (
           <EmptyState
             icon="search"
             title="No matches"
-            message="Nothing fits all your filters. Try removing one above to widen your search."
-            action={{ label: 'Widen search', onPress: () => run('') }}
+            message="Nothing fits that search. Try describing your ideal home differently."
+            action={{ label: 'Clear search', onPress: reset }}
             style={{ paddingTop: 30 }}
           />
         ) : (
@@ -360,7 +347,7 @@ export default function Search(): React.ReactElement {
               <ListingCard
                 key={l.id}
                 l={l}
-                saved={saved.has(l.id)}
+                saved={isSaved(l)}
                 onOpen={(id) => router.push(`/listing/${id}`)}
                 onToggleSave={toggleSave}
               />

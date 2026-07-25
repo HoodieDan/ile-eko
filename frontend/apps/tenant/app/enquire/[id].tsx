@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AppBar,
@@ -14,10 +14,9 @@ import {
   spacing,
   useToast,
 } from '@ile-eko/ui';
-import { getListing, naira } from '@/data/mock';
-import type { Listing } from '@/data/mock';
+import { naira, useAuth, useListing, useSendEnquiry, type ListingDetail } from '@ile-eko/core';
 
-function listingLabel(l: Listing): string {
+function listingLabel(l: ListingDetail): string {
   if (l.type === 'Self-contain') return 'self-contain';
   return `${l.beds}-bedroom ${l.type.toLowerCase()}`;
 }
@@ -30,25 +29,60 @@ const QUICK_REPLIES: readonly string[] = [
 
 export default function Enquire(): React.ReactElement | null {
   const router = useRouter();
-  const { showToast } = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const l = id ? getListing(id) : undefined;
+  const { status } = useAuth();
+  const { data: listing, isLoading } = useListing(id);
+
+  if (status === 'loading' || isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+        <AppBar title="Contact landlord" onBack={() => router.back()} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (status !== 'authenticated') return <Redirect href="/(auth)/login" />;
+  if (!listing) return null;
+
+  return <EnquireForm listing={listing} listingId={id} />;
+}
+
+function EnquireForm({
+  listing,
+  listingId,
+}: {
+  listing: ListingDetail;
+  listingId: string;
+}): React.ReactElement {
+  const router = useRouter();
+  const { showToast } = useToast();
+  const sendEnquiry = useSendEnquiry();
 
   const [message, setMessage] = useState<string>(
-    l
-      ? `Hi, I'm interested in your ${listingLabel(l)} in ${l.area}. Is it still available? I'd love to arrange an inspection.`
-      : '',
+    `Hi, I'm interested in your ${listingLabel(listing)} in ${listing.area}. Is it still available? I'd love to arrange an inspection.`,
   );
 
-  if (!l) return null;
-
   function send(): void {
-    if (!message.trim()) {
+    const text = message.trim();
+    if (!text) {
       showToast('Write a short message first', 'alert');
       return;
     }
-    showToast('Enquiry sent');
-    router.back();
+    sendEnquiry.mutate(
+      { listingId, message: text },
+      {
+        onSuccess: () => {
+          showToast('Enquiry sent');
+          router.back();
+        },
+        onError: () => {
+          showToast('Could not send. Please try again.', 'alert');
+        },
+      },
+    );
   }
 
   return (
@@ -68,10 +102,10 @@ export default function Enquire(): React.ReactElement | null {
           <PropertyThumb size={48} radius={11} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="bodyStrong" style={{ fontSize: 14 }} numberOfLines={1}>
-              {l.title}
+              {listing.title}
             </Text>
             <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 1 }}>
-              {l.area} · {naira(l.rent)}/yr
+              {listing.area} · {naira(listing.rent)}/yr
             </Text>
           </View>
         </Card>
@@ -140,7 +174,13 @@ export default function Enquire(): React.ReactElement | null {
           borderTopColor: colors.line,
         }}
       >
-        <Button title="Send enquiry" variant="primary" icon="send" onPress={send} />
+        <Button
+          title="Send enquiry"
+          variant="primary"
+          icon="send"
+          loading={sendEnquiry.isPending}
+          onPress={send}
+        />
       </View>
     </SafeAreaView>
   );

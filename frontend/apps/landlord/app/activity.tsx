@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -16,9 +16,10 @@ import {
   radii,
   type IconName,
 } from '@ile-eko/ui';
-import { activityLog, type ActivityEntry } from '@/data/mock';
+import { useActivity, initialsOf, timeAgo, type ActivityLogDTO } from '@ile-eko/core';
 
-type TypeFilter = 'all' | ActivityEntry['type'];
+type Category = ActivityLogDTO['category'];
+type TypeFilter = 'all' | Category;
 
 const TYPE_FILTERS: { id: TypeFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -32,9 +33,13 @@ const TYPE_FILTERS: { id: TypeFilter; label: string }[] = [
 type DayGroup = 'Today' | 'Yesterday' | 'Earlier';
 const GROUP_ORDER: DayGroup[] = ['Today', 'Yesterday', 'Earlier'];
 
-function groupOf(entry: ActivityEntry): DayGroup {
-  if (entry.when.startsWith('Today')) return 'Today';
-  if (entry.when.startsWith('Yesterday')) return 'Yesterday';
+function groupOf(iso: string): DayGroup {
+  const then = new Date(iso);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const t = then.getTime();
+  if (t >= startOfToday) return 'Today';
+  if (t >= startOfToday - 86_400_000) return 'Yesterday';
   return 'Earlier';
 }
 
@@ -44,13 +49,22 @@ interface Kind {
   bg: string;
 }
 
-const KIND: Record<ActivityEntry['type'], Kind> = {
-  payment: { icon: 'wallet', fg: colors.ok, bg: colors.okTint },
-  tenant: { icon: 'user', fg: colors.info, bg: colors.infoTint },
-  image: { icon: 'image', fg: colors.primary, bg: colors.primaryTint },
-  status: { icon: 'layers', fg: colors.warn, bg: colors.warnTint },
-  maintenance: { icon: 'settings', fg: colors.neutral, bg: colors.neutralTint },
-};
+function kindOf(category: Category): Kind {
+  switch (category) {
+    case 'payment':
+      return { icon: 'wallet', fg: colors.ok, bg: colors.okTint };
+    case 'tenant':
+      return { icon: 'user', fg: colors.info, bg: colors.infoTint };
+    case 'image':
+      return { icon: 'image', fg: colors.primary, bg: colors.primaryTint };
+    case 'status':
+      return { icon: 'layers', fg: colors.warn, bg: colors.warnTint };
+    case 'maintenance':
+      return { icon: 'settings', fg: colors.neutral, bg: colors.neutralTint };
+    default:
+      return { icon: 'activity', fg: colors.primary, bg: colors.primaryTint };
+  }
+}
 
 interface FilterChipProps {
   label: string;
@@ -86,20 +100,22 @@ export default function Activity(): React.ReactElement {
   const [type, setType] = useState<TypeFilter>('all');
   const [who, setWho] = useState<string>('all');
 
+  const { data: activityLog = [], isLoading } = useActivity();
+
   const people = useMemo<string[]>(
-    () => ['all', ...Array.from(new Set(activityLog.map((a) => a.who)))],
-    [],
+    () => ['all', ...Array.from(new Set(activityLog.map((a) => a.actorName)))],
+    [activityLog],
   );
 
-  const groups = useMemo<{ day: DayGroup; items: ActivityEntry[] }[]>(() => {
+  const groups = useMemo<{ day: DayGroup; items: ActivityLogDTO[] }[]>(() => {
     const list = activityLog.filter(
-      (a) => (type === 'all' || a.type === type) && (who === 'all' || a.who === who),
+      (a) => (type === 'all' || a.category === type) && (who === 'all' || a.actorName === who),
     );
     return GROUP_ORDER.map((day) => ({
       day,
-      items: list.filter((a) => groupOf(a) === day),
+      items: list.filter((a) => groupOf(a.createdAt) === day),
     })).filter((g) => g.items.length > 0);
-  }, [type, who]);
+  }, [activityLog, type, who]);
 
   return (
     <Screen scroll padded bottomSpace={120}>
@@ -135,33 +151,19 @@ export default function Activity(): React.ReactElement {
         {people.map((pn) => (
           <FilterChip
             key={pn}
-            label={pn === 'all' ? 'All caretakers' : (pn.split(' ')[0] ?? pn)}
+            label={pn === 'all' ? 'Everyone' : (pn.split(' ')[0] ?? pn)}
             active={who === pn}
             onPress={() => setWho(pn)}
           />
         ))}
-        <View
-          style={{
-            minHeight: 36,
-            paddingHorizontal: 14,
-            borderRadius: radii.pill,
-            borderWidth: 1,
-            borderColor: colors.line,
-            backgroundColor: colors.surface,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <Icon name="calendar" size={13} color={colors.muted} />
-          <Text variant="caption" color={colors.muted}>
-            Last 7 days
-          </Text>
-        </View>
       </View>
 
       {/* grouped feed */}
-      {groups.length === 0 ? (
+      {isLoading ? (
+        <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : groups.length === 0 ? (
         <View style={{ marginTop: spacing.xl }}>
           <EmptyState
             icon="activity"
@@ -175,12 +177,14 @@ export default function Activity(): React.ReactElement {
             <Eyebrow style={{ marginBottom: spacing.md }}>{group.day}</Eyebrow>
             <Card padding={0} style={{ paddingHorizontal: spacing.lg }}>
               {group.items.map((entry, i) => {
-                const k = KIND[entry.type];
+                const k = kindOf(entry.category);
                 const last = i === group.items.length - 1;
                 return (
                   <Pressable
                     key={entry.id}
-                    onPress={() => router.push(`/properties/${entry.propertyId}`)}
+                    onPress={() =>
+                      entry.propertyId ? router.push(`/properties/${entry.propertyId}`) : undefined
+                    }
                     style={{
                       flexDirection: 'row',
                       gap: spacing.md,
@@ -205,15 +209,7 @@ export default function Activity(): React.ReactElement {
 
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text variant="bodyStrong" color={colors.ink} style={{ fontSize: 13.5 }}>
-                        {entry.action}
-                      </Text>
-                      <Text
-                        variant="caption"
-                        color={colors.muted}
-                        numberOfLines={1}
-                        style={{ marginTop: 2 }}
-                      >
-                        {entry.detail}
+                        {entry.description}
                       </Text>
 
                       <View
@@ -225,13 +221,13 @@ export default function Activity(): React.ReactElement {
                         }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                          <Avatar initials={entry.initials} size={18} />
+                          <Avatar initials={initialsOf(entry.actorName)} size={18} />
                           <Text variant="captionStrong" color={colors.muted}>
-                            {entry.who}
+                            {entry.actorName}
                           </Text>
                         </View>
                         <Text variant="caption" color={colors.muted}>
-                          · {entry.when}
+                          · {timeAgo(entry.createdAt)}
                         </Text>
                       </View>
 

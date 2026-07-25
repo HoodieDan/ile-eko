@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppBar,
@@ -15,7 +15,13 @@ import {
   radii,
   spacing,
 } from '@ile-eko/ui';
-import { enquiries, getProperty } from '@/data/mock';
+import {
+  useEnquiryThread,
+  useReplyEnquiry,
+  useMarkEnquiryRead,
+  initialsOf,
+  timeAgo,
+} from '@ile-eko/core';
 
 const QUICK_REPLIES = [
   "Yes, it's still available.",
@@ -28,26 +34,43 @@ export default function EnquiryDetail(): React.ReactElement | null {
   const { showToast } = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const e = enquiries.find((x) => x.id === id);
+  const { data: e, isLoading } = useEnquiryThread(id);
+  const replyEnquiry = useReplyEnquiry();
+  const markRead = useMarkEnquiryRead();
+
+  const [reply, setReply] = React.useState('');
+
+  // Mark the thread as read once when it loads unread.
+  const markedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (e && !e.read && !markedRef.current) {
+      markedRef.current = true;
+      markRead.mutate(e.id);
+    }
+  }, [e, markRead]);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <AppBar title="Enquiry" onBack={() => router.back()} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
   if (!e) return null;
 
-  const prop = getProperty(e.propertyId);
-  const [reply, setReply] = React.useState('');
-  const [sent, setSent] = React.useState<string[]>([]);
-
   const send = (text?: string): void => {
-    const t = (text ?? reply).trim();
-    if (!t) return;
-    setSent((s) => [...s, t]);
+    const body = (text ?? reply).trim();
+    if (!body) return;
+    replyEnquiry.mutate(
+      { id: e.id, body },
+      { onSuccess: () => showToast('Reply sent') },
+    );
     setReply('');
-    showToast('Reply sent');
   };
-
-  const propMeta = prop
-    ? prop.multiUnit
-      ? `${e.area} · ${prop.unitCount ?? 0} units`
-      : `${e.area} · ${prop.type}`
-    : e.area;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -63,38 +86,27 @@ export default function EnquiryDetail(): React.ReactElement | null {
       >
         {/* Tenant header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Avatar initials={e.initials} size={48} />
+          <Avatar initials={initialsOf(e.tenantName)} size={48} />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text variant="h2">{e.tenant}</Text>
+            <Text variant="h2">{e.tenantName}</Text>
             <Text variant="caption" color={colors.muted}>
-              {`via marketplace · ${e.when}`}
+              {`via marketplace · ${timeAgo(e.createdAt)}`}
             </Text>
           </View>
         </View>
 
-        {/* Related property */}
-        {prop ? (
-          <Card
-            flat
-            padding={12}
-            onPress={() => router.push(`/properties/${prop.id}`)}
-            style={{ marginTop: spacing.lg }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <PropertyThumb size={48} radius={10} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Eyebrow>Enquiring about</Eyebrow>
-                <Text variant="bodyStrong" numberOfLines={1} style={{ marginTop: 1 }}>
-                  {prop.address}
-                </Text>
-                <Text variant="caption" color={colors.muted} numberOfLines={1}>
-                  {propMeta}
-                </Text>
-              </View>
-              <Icon name="fwd" size={18} color={colors.muted} />
+        {/* Related listing */}
+        <Card flat padding={12} style={{ marginTop: spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <PropertyThumb size={48} radius={10} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Eyebrow>Enquiring about</Eyebrow>
+              <Text variant="bodyStrong" numberOfLines={1} style={{ marginTop: 1 }}>
+                {e.targetLabel}
+              </Text>
             </View>
-          </Card>
-        ) : null}
+          </View>
+        </Card>
 
         {/* Message thread */}
         <View style={{ marginTop: 18, gap: spacing.md }}>
@@ -113,9 +125,9 @@ export default function EnquiryDetail(): React.ReactElement | null {
               {e.message}
             </Text>
           </View>
-          {sent.map((t, i) => (
+          {e.replies.map((r, i) => (
             <View
-              key={`${i}-${t}`}
+              key={`${i}-${r.createdAt}`}
               style={{
                 alignSelf: 'flex-end',
                 maxWidth: '85%',
@@ -127,14 +139,14 @@ export default function EnquiryDetail(): React.ReactElement | null {
               }}
             >
               <Text variant="body" color={colors.onPrimary} style={{ lineHeight: 21 }}>
-                {t}
+                {r.body}
               </Text>
             </View>
           ))}
         </View>
 
         {/* Quick replies */}
-        {sent.length === 0 ? (
+        {e.replies.length === 0 ? (
           <View
             style={{
               flexDirection: 'row',

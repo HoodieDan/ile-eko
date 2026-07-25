@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import {
   Screen,
   AppBar,
@@ -21,29 +21,49 @@ import {
   colors,
   spacing,
   radii,
-  type ChipTone,
-  type IconName,
+  type StatusKind,
 } from '@ile-eko/ui';
-import { getTenant, getProperty, naira, type PaymentState, type TenantRisk } from '@/data/mock';
+import {
+  useTenant,
+  useProperty,
+  naira,
+  initialsOf,
+  type TenantDTO,
+  type PaymentReceiptDTO,
+} from '@ile-eko/core';
 
-const RISK_STYLE: Record<TenantRisk['level'], { color: string; tint: string }> = {
-  Low: { color: colors.ok, tint: colors.okTint },
-  Watch: { color: colors.warn, tint: colors.warnTint },
-  High: { color: colors.danger, tint: colors.dangerTint },
+type RiskBand = NonNullable<TenantDTO['risk']>['band'];
+
+const RISK_STYLE: Record<RiskBand, { label: string; color: string; tint: string }> = {
+  low: { label: 'Low', color: colors.ok, tint: colors.okTint },
+  medium: { label: 'Watch', color: colors.warn, tint: colors.warnTint },
+  high: { label: 'High', color: colors.danger, tint: colors.dangerTint },
 };
 
-const PAY_STATE: Record<
-  PaymentState,
-  { tone: ChipTone; icon: IconName; label: string; dot: string }
-> = {
-  paid: { tone: 'ok', icon: 'check', label: 'Paid', dot: colors.ok },
-  confirmed: { tone: 'ok', icon: 'check', label: 'Confirmed', dot: colors.ok },
-  late: { tone: 'warn', icon: 'clock', label: 'Late', dot: colors.warn },
-  overdue: { tone: 'danger', icon: 'alert', label: 'Overdue', dot: colors.danger },
-  due: { tone: 'warn', icon: 'clock', label: 'Due', dot: colors.warn },
-  pending: { tone: 'warn', icon: 'clock', label: 'Pending', dot: colors.warn },
-  partial: { tone: 'info', icon: 'half', label: 'Partial', dot: colors.info },
+const METHOD_LABEL: Record<PaymentReceiptDTO['method'], string> = {
+  cash: 'Cash',
+  transfer: 'Bank transfer',
+  card: 'POS / card',
+  other: 'Other',
 };
+
+function tenantChip(status: TenantDTO['status']): StatusKind {
+  if (status === 'up-to-date') return 'paid';
+  if (status === 'no-lease') return 'vacant';
+  return status;
+}
+
+function cap(s?: string): string {
+  if (!s) return '—';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 function InfoRow({
   icon,
@@ -109,11 +129,23 @@ export default function TenantDetailScreen(): React.ReactElement | null {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showToast } = useToast();
 
-  const t = getTenant(id);
+  const { data: t, isLoading } = useTenant(id);
+  const { data: prop } = useProperty(t?.propertyId);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <AppBar title="Tenant" onBack={() => router.back()} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
   if (!t) return null;
 
-  const prop = getProperty(t.propertyId);
-  const risk = RISK_STYLE[t.risk.level];
+  const risk = t.risk ? RISK_STYLE[t.risk.band] : null;
 
   return (
     <>
@@ -133,13 +165,13 @@ export default function TenantDetailScreen(): React.ReactElement | null {
             marginTop: spacing.md,
           }}
         >
-          <Avatar initials={t.initials} size={62} />
+          <Avatar initials={initialsOf(t.fullName)} size={62} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="h2" numberOfLines={1}>
-              {t.name}
+              {t.fullName}
             </Text>
             <View style={{ marginTop: spacing.xs, flexDirection: 'row' }}>
-              <StatusChip status={t.status} />
+              <StatusChip status={tenantChip(t.status)} />
             </View>
           </View>
         </View>
@@ -163,11 +195,10 @@ export default function TenantDetailScreen(): React.ReactElement | null {
                 RENTS
               </Text>
               <Text variant="bodyStrong" numberOfLines={1} style={{ marginTop: 1 }}>
-                {prop.address}
-                {t.unit ? ` · ${t.unit}` : ''}
+                {prop.propertyTitle}
               </Text>
               <Text variant="caption" color={colors.muted} numberOfLines={1}>
-                {t.area} · {t.type}
+                {prop.area} · {prop.propertyType}
               </Text>
             </View>
             <Icon name="fwd" size={18} color={colors.muted} />
@@ -182,7 +213,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               variant="secondary"
               size="sm"
               icon="phone"
-              onPress={() => showToast(`Calling ${t.name}`)}
+              onPress={() => showToast(`Calling ${t.fullName}`)}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -191,7 +222,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               variant="secondary"
               size="sm"
               icon="message"
-              onPress={() => showToast(`Message to ${t.name}`)}
+              onPress={() => showToast(`Message to ${t.fullName}`)}
             />
           </View>
         </View>
@@ -199,47 +230,53 @@ export default function TenantDetailScreen(): React.ReactElement | null {
         {/* Contact details */}
         <Card padding={0} style={{ marginTop: spacing.md, paddingHorizontal: spacing.lg }}>
           <InfoRow icon="phone" label="Phone" value={t.phone} />
-          <InfoRow icon="mail" label="Email" value={t.email} last />
+          <InfoRow icon="mail" label="Email" value={t.email ?? '—'} last />
         </Card>
 
         {/* AI default risk */}
-        <AICard style={{ marginTop: spacing['2xl'] }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <AILabel>Default risk</AILabel>
+        {risk ? (
+          <AICard style={{ marginTop: spacing['2xl'] }}>
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 6,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: radii.pill,
-                backgroundColor: risk.tint,
+                justifyContent: 'space-between',
               }}
             >
+              <AILabel>Default risk</AILabel>
               <View
                 style={{
-                  width: 7,
-                  height: 7,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
                   borderRadius: radii.pill,
-                  backgroundColor: risk.color,
+                  backgroundColor: risk.tint,
                 }}
-              />
-              <Text variant="captionStrong" color={risk.color}>
-                {t.risk.level}
-              </Text>
+              >
+                <View
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: radii.pill,
+                    backgroundColor: risk.color,
+                  }}
+                />
+                <Text variant="captionStrong" color={risk.color}>
+                  {risk.label}
+                </Text>
+              </View>
             </View>
-          </View>
-          <Text variant="body" color={colors.ink} style={{ marginTop: spacing.sm, lineHeight: 21 }}>
-            {t.risk.reason}
-          </Text>
-        </AICard>
+            <Text
+              variant="body"
+              color={colors.ink}
+              style={{ marginTop: spacing.sm, lineHeight: 21 }}
+            >
+              {t.risk?.reason}
+            </Text>
+          </AICard>
+        ) : null}
 
         {/* Lease & rent */}
         <Text variant="title" style={{ marginTop: spacing['2xl'], marginBottom: spacing.md }}>
@@ -254,12 +291,12 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               justifyContent: 'space-between',
             }}
           >
-            <Fact k="Annual rent" v={naira(t.rent)} />
-            <Fact k="Schedule" v={t.schedule} />
-            <Fact k="Lease start" v={t.leaseStart} />
-            <Fact k="Lease end" v={t.leaseEnd} />
-            <Fact k="Moved in" v={t.moveIn} />
-            <Fact k="Property" v={t.area} />
+            <Fact k="Annual rent" v={naira(t.rentAmount ?? 0)} />
+            <Fact k="Schedule" v={cap(t.paymentSchedule)} />
+            <Fact k="Lease start" v={fmtDate(t.leaseStartDate)} />
+            <Fact k="Lease end" v={fmtDate(t.leaseEndDate)} />
+            <Fact k="Next due" v={fmtDate(t.paymentDueDate)} />
+            <Fact k="Property" v={prop?.area ?? '—'} />
           </View>
         </Card>
 
@@ -268,40 +305,44 @@ export default function TenantDetailScreen(): React.ReactElement | null {
           Payment history
         </Text>
         <Card>
-          <Timeline>
-            {t.history.map((h, i) => {
-              const m = PAY_STATE[h.state];
-              const last = i === t.history.length - 1;
-              return (
-                <TimelineItem key={`${h.period}-${i}`} icon={m.icon} iconColor={m.dot} last={last}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      gap: spacing.md,
-                    }}
-                  >
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text variant="bodyStrong" numberOfLines={1}>
-                        {h.period}
-                      </Text>
-                      <Text variant="caption" color={colors.muted} style={{ marginTop: 2 }}>
-                        {h.date}
-                        {h.method && h.method !== '—' ? ` · ${h.method}` : ''}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text variant="bodyStrong">{naira(h.amount)}</Text>
-                      <View style={{ marginTop: 3 }}>
-                        <Chip label={m.label} tone={m.tone} icon={m.icon} />
+          {t.history.length === 0 ? (
+            <Text variant="caption" color={colors.muted}>
+              No payments logged yet.
+            </Text>
+          ) : (
+            <Timeline>
+              {t.history.map((h, i) => {
+                const last = i === t.history.length - 1;
+                return (
+                  <TimelineItem key={h.id} icon="check" iconColor={colors.ok} last={last}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: spacing.md,
+                      }}
+                    >
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text variant="bodyStrong" numberOfLines={1}>
+                          {h.periodCovered ?? 'Rent payment'}
+                        </Text>
+                        <Text variant="caption" color={colors.muted} style={{ marginTop: 2 }}>
+                          {fmtDate(h.paidAt)} · {METHOD_LABEL[h.method]}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text variant="bodyStrong">{naira(h.amount)}</Text>
+                        <View style={{ marginTop: 3 }}>
+                          <Chip label="Confirmed" tone="ok" icon="check" />
+                        </View>
                       </View>
                     </View>
-                  </View>
-                </TimelineItem>
-              );
-            })}
-          </Timeline>
+                  </TimelineItem>
+                );
+              })}
+            </Timeline>
+          )}
         </Card>
       </Screen>
 

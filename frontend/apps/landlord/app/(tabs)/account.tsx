@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '@ile-eko/core';
+import { useAuth, useTenants, useEnquiryInbox, initialsOf } from '@ile-eko/core';
 import {
   Screen,
   Text,
@@ -16,7 +16,6 @@ import {
   heroGradient,
   type IconName,
 } from '@ile-eko/ui';
-import { landlord, tenants, enquiries } from '@/data/mock';
 
 interface AccountRow {
   icon: IconName;
@@ -46,12 +45,15 @@ function RowTile({ name }: { name: IconName }): React.ReactElement {
 
 export default function AccountTab(): React.ReactElement {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { data: tenants = [] } = useTenants();
+  const { data: inbox } = useEnquiryInbox();
 
-  const unread = enquiries.filter((e) => !e.read).length;
+  const name = user?.name ?? 'Landlord';
+  const unread = inbox?.unreadCount ?? 0;
 
   const rows: AccountRow[] = [
-    { icon: 'user', label: 'Account & profile', sub: landlord.name },
+    { icon: 'user', label: 'Account & profile', sub: user?.email ?? name },
     {
       icon: 'users',
       label: 'Tenants',
@@ -95,13 +97,13 @@ export default function AccountTab(): React.ReactElement {
         style={{ borderRadius: radii.card, padding: spacing.lg }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <Avatar initials={landlord.initials} size={50} tone="solid" />
+          <Avatar initials={initialsOf(name)} size={50} tone="solid" />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="h3" color="#FFFFFF" numberOfLines={1}>
-              {landlord.name}
+              {name}
             </Text>
             <Text variant="caption" color="rgba(255,255,255,0.82)" numberOfLines={1}>
-              Managing from {landlord.location}
+              Managing your portfolio
             </Text>
           </View>
         </View>

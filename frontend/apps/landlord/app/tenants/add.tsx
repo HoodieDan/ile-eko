@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -15,20 +15,20 @@ import {
   type SelectOption,
   type SegmentOption,
 } from '@ile-eko/ui';
-import { properties } from '@/data/mock';
+import {
+  useProperties,
+  useCreateTenant,
+  useCreateLease,
+  type PaymentFrequency,
+} from '@ile-eko/core';
 
-type Schedule = 'year' | 'biannual' | 'quarter' | 'month';
-
-const PROPERTY_OPTIONS: SelectOption[] = [
-  ...properties.map((p) => ({ value: p.id, label: `${p.address} · ${p.area}` })),
-  { value: 'p6-u3', label: 'Harmony Court · Flat 3 (vacant)' },
-];
+type Schedule = PaymentFrequency;
 
 const SCHEDULE_OPTIONS: SegmentOption<Schedule>[] = [
-  { value: 'year', label: 'Annual' },
+  { value: 'annual', label: 'Annual' },
   { value: 'biannual', label: 'Bi-annual' },
-  { value: 'quarter', label: 'Quarterly' },
-  { value: 'month', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'monthly', label: 'Monthly' },
 ];
 
 interface TenantFormState {
@@ -61,19 +61,28 @@ function validate(f: TenantFormState): TenantFormErrors {
 export default function AddTenant(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
+  const { data: properties = [] } = useProperties();
+  const createTenant = useCreateTenant();
+  const createLease = useCreateLease();
+
   const [submitting, setSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
   const [form, setForm] = useState<TenantFormState>({
     name: '',
     phone: '',
     email: '',
-    property: 'p5',
+    property: '',
     start: '',
     end: '',
     rent: '',
-    schedule: 'year',
+    schedule: 'annual',
     moveIn: '',
   });
+
+  const propertyOptions = useMemo<SelectOption[]>(
+    () => properties.map((p) => ({ value: p.id, label: `${p.propertyTitle} · ${p.area}` })),
+    [properties],
+  );
 
   const set = <K extends keyof TenantFormState>(key: K, value: TenantFormState[K]): void => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -81,12 +90,33 @@ export default function AddTenant(): React.ReactElement {
 
   const errors = validate(form);
 
-  const handleSave = (): void => {
+  const handleSave = async (): Promise<void> => {
     setTouched(true);
     if (errors.name || errors.phone || errors.rent) return;
     setSubmitting(true);
-    showToast('Tenant added');
-    router.back();
+    try {
+      const tenant = await createTenant.mutateAsync({
+        fullName: form.name.trim(),
+        phone: form.phone.replace(/\s/g, ''),
+        ...(form.email.trim() ? { email: form.email.trim() } : {}),
+      });
+      // A lease needs a property + dates; create one when the landlord supplied them.
+      if (form.property && form.start && form.end) {
+        await createLease.mutateAsync({
+          tenantId: tenant.id,
+          propertyId: form.property,
+          startDate: form.start,
+          endDate: form.end,
+          billingAmount: Number(form.rent.replace(/[^\d]/g, '')),
+          schedule: form.schedule,
+        });
+      }
+      showToast('Tenant added');
+      router.back();
+    } catch {
+      setSubmitting(false);
+      showToast('Could not add tenant');
+    }
   };
 
   return (
@@ -128,7 +158,7 @@ export default function AddTenant(): React.ReactElement {
         <Select
           label="Assign to property / unit"
           value={form.property}
-          options={PROPERTY_OPTIONS}
+          options={propertyOptions}
           onChange={(v) => set('property', v)}
         />
 
@@ -184,7 +214,9 @@ export default function AddTenant(): React.ReactElement {
           variant="primary"
           fullWidth
           loading={submitting}
-          onPress={handleSave}
+          onPress={() => {
+            void handleSave();
+          }}
         />
       </View>
     </Screen>

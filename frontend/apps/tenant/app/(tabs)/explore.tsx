@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Avatar,
   Chip,
+  EmptyState,
   Eyebrow,
   Icon,
   PropertyThumb,
@@ -14,7 +15,16 @@ import {
   spacing,
   useToast,
 } from '@ile-eko/ui';
-import { listings, naira, profile, savedIds, type Listing } from '@/data/mock';
+import {
+  naira,
+  initialsOf,
+  useAuth,
+  useListings,
+  useRecommendations,
+  useSaveListing,
+  useUnsaveListing,
+  type ListingSummary,
+} from '@ile-eko/core';
 
 const QUICK = ['Under ₦1M', '2 bedroom', '3 bedroom', 'Yaba', 'Lekki', 'Good water'] as const;
 
@@ -29,23 +39,27 @@ const CARD_SHADOW = {
 export default function Explore(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
-  const [saved, setSaved] = useState<Set<string>>(() => new Set(savedIds));
+  const { user } = useAuth();
 
-  const firstName = profile.name.split(' ')[0] ?? profile.name;
-  const recommended = listings.filter((l) => l.recommended);
+  const { data: listings = [], isLoading } = useListings();
+  const { data: recommended = [] } = useRecommendations();
+  const saveListing = useSaveListing();
+  const unsaveListing = useUnsaveListing();
 
-  const toggleSave = (id: string, title: string): void => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        showToast(`Removed ${title}`, 'heart');
-      } else {
-        next.add(id);
-        showToast(`Saved ${title}`, 'heart');
-      }
-      return next;
-    });
+  const firstName = user?.name?.split(' ')[0];
+
+  const toggleSave = (l: ListingSummary): void => {
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
+    if (l.saved) {
+      unsaveListing.mutate(l.id);
+      showToast(`Removed ${l.title}`, 'heart');
+    } else {
+      saveListing.mutate(l.id);
+      showToast(`Saved ${l.title}`, 'heart');
+    }
   };
 
   return (
@@ -56,13 +70,13 @@ export default function Explore(): React.ReactElement {
       >
         <View style={{ flex: 1, minWidth: 0, paddingRight: spacing.md }}>
           <Text variant="body" color={colors.muted} style={{ fontSize: 13 }}>
-            Good afternoon, {firstName}
+            Good afternoon{firstName ? `, ${firstName}` : ''}
           </Text>
           <Text variant="h1" style={{ marginTop: 2, fontSize: 26 }}>
             Find your home
           </Text>
         </View>
-        <Avatar initials={profile.initials} size={42} tone="accent" />
+        <Avatar initials={user ? initialsOf(user.name) : ''} size={42} tone="accent" />
       </View>
 
       {/* Natural-language search entry → /search */}
@@ -108,7 +122,7 @@ export default function Explore(): React.ReactElement {
           <Pressable
             key={q}
             accessibilityRole="button"
-            onPress={() => router.push('/search')}
+            onPress={() => router.push({ pathname: '/search', params: { q } })}
             style={({ pressed }) => ({
               minHeight: 38,
               justifyContent: 'center',
@@ -127,93 +141,109 @@ export default function Explore(): React.ReactElement {
       </ScrollView>
 
       {/* Recommended for you */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: spacing['2xl'],
-          marginBottom: spacing.md,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Icon name="spark" size={13} color={colors.aiDeep} fill />
-          <Eyebrow color={colors.aiDeep}>Recommended for you</Eyebrow>
-        </View>
-        <Text variant="caption" color={colors.muted}>
-          From your preferences
-        </Text>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginHorizontal: -spacing.xl }}
-        contentContainerStyle={{
-          gap: spacing.md,
-          paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.xs,
-        }}
-      >
-        {recommended.map((l) => (
-          <Pressable
-            key={l.id}
-            accessibilityRole="button"
-            onPress={() => router.push(`/listing/${l.id}`)}
-            style={({ pressed }) => [
-              {
-                width: 230,
-                borderRadius: radii.card,
-                backgroundColor: colors.aiTint,
-                overflow: 'hidden',
-                transform: [{ scale: pressed ? 0.985 : 1 }],
-              },
-            ]}
+      {recommended.length > 0 ? (
+        <>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: spacing['2xl'],
+              marginBottom: spacing.md,
+            }}
           >
-            <View>
-              <PropertyThumb height={120} width="100%" radius={0} glyphSize={42} />
-              <View style={{ position: 'absolute', top: 10, left: 10 }}>
-                <Chip label="Match" tone="ai" icon="spark" solid />
-              </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Icon name="spark" size={13} color={colors.aiDeep} fill />
+              <Eyebrow color={colors.aiDeep}>Recommended for you</Eyebrow>
             </View>
-            <View style={{ padding: 13 }}>
-              <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
-                {l.title}
-              </Text>
-              <Text
-                variant="caption"
-                color={colors.muted}
-                style={{ marginTop: 2 }}
-                numberOfLines={1}
+            <Text variant="caption" color={colors.muted}>
+              From your preferences
+            </Text>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginHorizontal: -spacing.xl }}
+            contentContainerStyle={{
+              gap: spacing.md,
+              paddingHorizontal: spacing.xl,
+              paddingBottom: spacing.xs,
+            }}
+          >
+            {recommended.map((l) => (
+              <Pressable
+                key={l.id}
+                accessibilityRole="button"
+                onPress={() => router.push(`/listing/${l.id}`)}
+                style={({ pressed }) => [
+                  {
+                    width: 230,
+                    borderRadius: radii.card,
+                    backgroundColor: colors.aiTint,
+                    overflow: 'hidden',
+                    transform: [{ scale: pressed ? 0.985 : 1 }],
+                  },
+                ]}
               >
-                {l.area} · {naira(l.rent)}/yr
-              </Text>
-            </View>
-          </Pressable>
-        ))}
-      </ScrollView>
+                <View>
+                  <PropertyThumb height={120} width="100%" radius={0} glyphSize={42} />
+                  <View style={{ position: 'absolute', top: 10, left: 10 }}>
+                    <Chip label="Match" tone="ai" icon="spark" solid />
+                  </View>
+                </View>
+                <View style={{ padding: 13 }}>
+                  <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
+                    {l.title}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    color={colors.muted}
+                    style={{ marginTop: 2 }}
+                    numberOfLines={1}
+                  >
+                    {l.area} · {naira(l.rent)}/yr
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
 
       {/* Newest vacant homes feed */}
       <Text variant="h2" style={{ marginTop: spacing['2xl'], marginBottom: 13, fontSize: 19 }}>
         Newest vacant homes
       </Text>
-      <View style={{ gap: spacing.lg }}>
-        {listings.map((l) => (
-          <ListingCard
-            key={l.id}
-            listing={l}
-            saved={saved.has(l.id)}
-            onOpen={() => router.push(`/listing/${l.id}`)}
-            onToggleSave={() => toggleSave(l.id, l.title)}
-          />
-        ))}
-      </View>
+      {isLoading ? (
+        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : listings.length === 0 ? (
+        <EmptyState
+          icon="home"
+          title="No homes available yet"
+          message="Check back soon — new verified homes are added regularly."
+        />
+      ) : (
+        <View style={{ gap: spacing.lg }}>
+          {listings.map((l) => (
+            <ListingCard
+              key={l.id}
+              listing={l}
+              saved={l.saved ?? false}
+              onOpen={() => router.push(`/listing/${l.id}`)}
+              onToggleSave={() => toggleSave(l)}
+            />
+          ))}
+        </View>
+      )}
     </Screen>
   );
 }
 
 interface ListingCardProps {
-  listing: Listing;
+  listing: ListingSummary;
   saved: boolean;
   onOpen: () => void;
   onToggleSave: () => void;
@@ -289,7 +319,7 @@ function ListingCard({
   );
 }
 
-function FactRow({ listing }: { listing: Listing }): React.ReactElement {
+function FactRow({ listing }: { listing: ListingSummary }): React.ReactElement {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -12,25 +12,32 @@ import {
   radii,
   spacing,
 } from '@ile-eko/ui';
-import { enquiries, getProperty, type Enquiry } from '@/data/mock';
+import { useEnquiryInbox, initialsOf, timeAgo, type EnquiryInboxDTO } from '@ile-eko/core';
 
 const GROUP_ORDER = ['Today', 'Yesterday', 'Earlier'] as const;
 type Group = (typeof GROUP_ORDER)[number];
 
 interface GroupBucket {
   group: Group;
-  items: Enquiry[];
+  items: EnquiryInboxDTO[];
+}
+
+function groupOf(iso: string): Group {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const t = new Date(iso).getTime();
+  if (t >= startOfToday) return 'Today';
+  if (t >= startOfToday - 86_400_000) return 'Yesterday';
+  return 'Earlier';
 }
 
 // Design: color-mix(in srgb, var(--primary) 5%, var(--surface)) — a faint
 // brand wash over the white card to flag unread enquiries.
 const UNREAD_BG = 'rgba(30,110,82,0.05)';
 
-function EnquiryRow({ enquiry }: { enquiry: Enquiry }): React.ReactElement {
+function EnquiryRow({ enquiry }: { enquiry: EnquiryInboxDTO }): React.ReactElement {
   const router = useRouter();
-  const prop = getProperty(enquiry.propertyId);
   const read = enquiry.read;
-  const address = prop?.address ?? '';
 
   return (
     <Pressable
@@ -58,7 +65,7 @@ function EnquiryRow({ enquiry }: { enquiry: Enquiry }): React.ReactElement {
           }}
         />
       ) : null}
-      <Avatar initials={enquiry.initials} size={44} />
+      <Avatar initials={initialsOf(enquiry.tenantName)} size={44} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View
           style={{
@@ -69,14 +76,14 @@ function EnquiryRow({ enquiry }: { enquiry: Enquiry }): React.ReactElement {
           }}
         >
           <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
-            {enquiry.tenant}
+            {enquiry.tenantName}
           </Text>
           <Text variant="caption" color={colors.muted}>
-            {enquiry.when}
+            {timeAgo(enquiry.createdAt)}
           </Text>
         </View>
         <Text variant="caption" color={colors.muted} numberOfLines={1} style={{ marginTop: 1 }}>
-          {`Re: ${address} · ${enquiry.area}`}
+          {`Re: ${enquiry.targetLabel}`}
         </Text>
         <Text
           variant="body"
@@ -104,12 +111,14 @@ function EnquiryRow({ enquiry }: { enquiry: Enquiry }): React.ReactElement {
 
 export default function EnquiriesInbox(): React.ReactElement {
   const router = useRouter();
+  const { data, isLoading } = useEnquiryInbox();
 
-  const unread = enquiries.filter((e) => !e.read).length;
+  const items = data?.items ?? [];
+  const unread = data?.unreadCount ?? 0;
 
   const groups: GroupBucket[] = GROUP_ORDER.map((group) => ({
     group,
-    items: enquiries.filter((e) => e.group === group),
+    items: items.filter((e) => groupOf(e.createdAt) === group),
   })).filter((bucket) => bucket.items.length > 0);
 
   return (
@@ -120,18 +129,22 @@ export default function EnquiriesInbox(): React.ReactElement {
         {`From the Ilé Èkó marketplace${unread ? ` · ${unread} unread` : ''}`}
       </Text>
 
-      {groups.length === 0 ? (
+      {isLoading ? (
+        <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : groups.length === 0 ? (
         <EmptyState
           icon="message"
           title="No enquiries yet"
           message="List a vacant unit to start receiving enquiries from tenants."
         />
       ) : (
-        groups.map(({ group, items }) => (
+        groups.map(({ group, items: bucket }) => (
           <View key={group} style={{ marginBottom: spacing.lg }}>
             <Eyebrow style={{ marginBottom: spacing.md }}>{group}</Eyebrow>
             <View style={{ gap: spacing.md }}>
-              {items.map((e) => (
+              {bucket.map((e) => (
                 <EnquiryRow key={e.id} enquiry={e} />
               ))}
             </View>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -14,8 +14,15 @@ import {
   colors,
   spacing,
   radii,
+  type StatusKind,
 } from '@ile-eko/ui';
-import { tenants, nairaShort, type Tenant } from '@/data/mock';
+import {
+  useTenants,
+  useProperties,
+  initialsOf,
+  nairaShort,
+  type TenantDTO,
+} from '@ile-eko/core';
 
 type FilterId = 'all' | 'current' | 'action';
 
@@ -25,11 +32,27 @@ const FILTERS: { id: FilterId; label: string }[] = [
   { id: 'action', label: 'Needs action' },
 ];
 
-const ACTION_STATES: Tenant['status'][] = ['overdue', 'partial', 'pending', 'due'];
+const ACTION_STATES: TenantDTO['status'][] = ['overdue', 'partial', 'due'];
 
-/** Drops the day component of a lease-end date, e.g. "09 Mar 2026" -> "Mar 2026". */
-function leaseEndShort(leaseEnd: string): string {
-  return leaseEnd.split(' ').slice(1).join(' ');
+const RISK_LABEL: Record<NonNullable<TenantDTO['risk']>['band'], string> = {
+  low: 'Low',
+  medium: 'Watch',
+  high: 'High',
+};
+
+/** Tenant lifecycle status → the status pill the UI renders. */
+export function tenantChip(status: TenantDTO['status']): StatusKind {
+  if (status === 'up-to-date') return 'paid';
+  if (status === 'no-lease') return 'vacant';
+  return status;
+}
+
+/** Short "Mon YYYY" for a lease-end date, e.g. "2026-03-09" -> "Mar 2026". */
+function monthYear(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-NG', { month: 'short', year: 'numeric' });
 }
 
 export default function TenantsScreen(): React.ReactElement {
@@ -37,17 +60,27 @@ export default function TenantsScreen(): React.ReactElement {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterId>('all');
 
-  const list = useMemo<Tenant[]>(() => {
+  const { data: tenants = [], isLoading } = useTenants();
+  const { data: properties = [] } = useProperties();
+
+  const areaById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of properties) map.set(p.id, p.area);
+    return map;
+  }, [properties]);
+
+  const list = useMemo<TenantDTO[]>(() => {
     const q = query.trim().toLowerCase();
     return tenants.filter((t) => {
       const matchesFilter =
         filter === 'all' ||
-        (filter === 'current' && t.status === 'paid') ||
+        (filter === 'current' && t.status === 'up-to-date') ||
         (filter === 'action' && ACTION_STATES.includes(t.status));
-      const haystack = `${t.name} ${t.area}`.toLowerCase();
+      const area = (t.propertyId && areaById.get(t.propertyId)) || '';
+      const haystack = `${t.fullName} ${area}`.toLowerCase();
       return matchesFilter && haystack.includes(q);
     });
-  }, [query, filter]);
+  }, [tenants, query, filter, areaById]);
 
   return (
     <Screen scroll padded bottomSpace={120}>
@@ -93,68 +126,87 @@ export default function TenantsScreen(): React.ReactElement {
       </View>
 
       <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-        {list.length === 0 ? (
+        {isLoading ? (
+          <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : list.length === 0 ? (
           <EmptyState icon="users" title="No tenants" message="Nothing matches here." />
         ) : (
-          list.map((t) => (
-            <Pressable
-              key={t.id}
-              onPress={() => router.push(`/tenants/${t.id}`)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.md,
-                padding: 14,
-                borderRadius: radii.card,
-                backgroundColor: colors.surface,
-                borderWidth: 1,
-                borderColor: colors.line,
-              }}
-            >
-              <Avatar initials={t.initials} size={46} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: spacing.sm,
-                  }}
-                >
-                  <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
-                    {t.name}
-                  </Text>
-                  <Chip label={t.risk.level} tone="ai" icon="spark" style={{ flexShrink: 0 }} />
-                </View>
-                <Text
-                  variant="caption"
-                  color={colors.muted}
-                  numberOfLines={1}
-                  style={{ marginTop: 2 }}
-                >
-                  {t.area}
-                  {t.unit ? ` · ${t.unit}` : ''} · ends {leaseEndShort(t.leaseEnd)}
-                </Text>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginTop: 9,
-                  }}
-                >
-                  <Text variant="bodyStrong" style={{ fontSize: 13.5 }}>
-                    {nairaShort(t.rent)}
-                    <Text variant="caption" color={colors.muted}>
-                      {' '}
-                      /yr
+          list.map((t) => {
+            const area = (t.propertyId && areaById.get(t.propertyId)) || '';
+            const end = monthYear(t.leaseEndDate);
+            const subtitle = [area, end ? `ends ${end}` : '']
+              .filter(Boolean)
+              .join(' · ');
+            return (
+              <Pressable
+                key={t.id}
+                onPress={() => router.push(`/tenants/${t.id}`)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.md,
+                  padding: 14,
+                  borderRadius: radii.card,
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                }}
+              >
+                <Avatar initials={initialsOf(t.fullName)} size={46} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: spacing.sm,
+                    }}
+                  >
+                    <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
+                      {t.fullName}
                     </Text>
-                  </Text>
-                  <StatusChip status={t.status} />
+                    {t.risk ? (
+                      <Chip
+                        label={RISK_LABEL[t.risk.band]}
+                        tone="ai"
+                        icon="spark"
+                        style={{ flexShrink: 0 }}
+                      />
+                    ) : null}
+                  </View>
+                  {subtitle ? (
+                    <Text
+                      variant="caption"
+                      color={colors.muted}
+                      numberOfLines={1}
+                      style={{ marginTop: 2 }}
+                    >
+                      {subtitle}
+                    </Text>
+                  ) : null}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 9,
+                    }}
+                  >
+                    <Text variant="bodyStrong" style={{ fontSize: 13.5 }}>
+                      {nairaShort(t.rentAmount ?? 0)}
+                      <Text variant="caption" color={colors.muted}>
+                        {' '}
+                        /yr
+                      </Text>
+                    </Text>
+                    <StatusChip status={tenantChip(t.status)} />
+                  </View>
                 </View>
-              </View>
-            </Pressable>
-          ))
+              </Pressable>
+            );
+          })
         )}
       </View>
     </Screen>

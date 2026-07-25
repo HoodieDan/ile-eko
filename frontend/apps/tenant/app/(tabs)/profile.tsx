@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import {
   AICard,
@@ -15,8 +15,28 @@ import {
   heroGradient,
   type IconName,
 } from '@ile-eko/ui';
-import { useAuth } from '@ile-eko/core';
-import { areas, profile } from '@/data/mock';
+import {
+  initialsOf,
+  useAccount,
+  useAuth,
+  usePreferences,
+  useUpdatePreferences,
+  type PreferencesDTO,
+} from '@ile-eko/core';
+
+/** Preferred-area pick list (static UI options; the user's selection lives in preferences). */
+const AREAS = [
+  'Lekki Phase 1',
+  'Yaba',
+  'Surulere',
+  'Gbagada',
+  'Ikoyi',
+  'Ikeja GRA',
+  'Magodo',
+  'Ajah',
+  'Maryland',
+  'Victoria Island',
+] as const;
 
 const BUDGETS: ReadonlyArray<readonly [number, number, string]> = [
   [0, 600000, '≤ ₦600k'],
@@ -24,6 +44,8 @@ const BUDGETS: ReadonlyArray<readonly [number, number, string]> = [
   [1200000, 2500000, '₦1.2M–₦2.5M'],
   [2500000, 9e9, '₦2.5M+'],
 ];
+
+const DEFAULT_BUDGET = '₦600k–₦1.2M';
 
 const SIZE_OPTIONS = [
   { value: 'Studio / 1-bed', label: 'Studio / 1-bed' },
@@ -41,24 +63,71 @@ interface InfoRow {
   chevron?: boolean;
 }
 
-export default function Profile(): React.ReactElement {
+function deriveBudgetLabel(prefs?: PreferencesDTO): string {
+  if (!prefs || (prefs.budgetMin == null && prefs.budgetMax == null)) return DEFAULT_BUDGET;
+  const hi = prefs.budgetMax ?? 9e9;
+  const bucket = BUDGETS.find(([, bhi]) => hi <= bhi) ?? BUDGETS[BUDGETS.length - 1]!;
+  return bucket[2];
+}
+
+export default function Profile(): React.ReactElement | null {
+  const { status } = useAuth();
+  if (status === 'loading') return null;
+  if (status !== 'authenticated') return <Redirect href="/(auth)/login" />;
+  return <ProfileContent />;
+}
+
+function ProfileContent(): React.ReactElement {
   const router = useRouter();
   const { logout } = useAuth();
+  const { data: account } = useAccount();
+  const { data: prefs } = usePreferences();
+  const updatePrefs = useUpdatePreferences();
 
-  const [budget, setBudget] = useState<string>('₦600k–₦1.2M');
-  const [areaSet, setAreaSet] = useState<Set<string>>(new Set(profile.areas));
-  const isValidSize = SIZE_OPTIONS.some((o) => o.value === profile.size);
-  const [size, setSize] = useState<SizeValue>(
-    isValidSize ? (profile.size as SizeValue) : 'Any size',
-  );
+  const user = account?.user;
+  const name = user?.name ?? '';
+  const email = user?.email ?? '';
+
+  const [budget, setBudget] = useState<string>(DEFAULT_BUDGET);
+  const [areaSet, setAreaSet] = useState<Set<string>>(new Set());
+  const [size, setSize] = useState<SizeValue>('Any size');
+  const seeded = useRef(false);
+
+  // Seed the controls once preferences arrive from the API.
+  useEffect(() => {
+    if (prefs && !seeded.current) {
+      seeded.current = true;
+      setBudget(deriveBudgetLabel(prefs));
+      setAreaSet(new Set(prefs.areas ?? []));
+      const s = prefs.sizeLabel;
+      setSize(s && SIZE_OPTIONS.some((o) => o.value === s) ? (s as SizeValue) : 'Any size');
+    }
+  }, [prefs]);
+
+  const onBudget = (label: string): void => {
+    setBudget(label);
+    const tuple = BUDGETS.find(([, , l]) => l === label);
+    if (tuple) {
+      updatePrefs.mutate({
+        budgetMin: tuple[0],
+        budgetMax: tuple[1] >= 9e9 ? undefined : tuple[1],
+      });
+    }
+  };
 
   const toggleArea = (a: string): void => {
     setAreaSet((prev) => {
       const next = new Set(prev);
       if (next.has(a)) next.delete(a);
       else next.add(a);
+      updatePrefs.mutate({ areas: [...next] });
       return next;
     });
+  };
+
+  const onSize = (v: SizeValue): void => {
+    setSize(v);
+    updatePrefs.mutate({ sizeLabel: v });
   };
 
   const onLogout = async (): Promise<void> => {
@@ -67,8 +136,8 @@ export default function Profile(): React.ReactElement {
   };
 
   const infoRows: InfoRow[] = [
-    { ic: 'phone', label: 'Phone', value: profile.phone },
-    { ic: 'mail', label: 'Email', value: profile.email },
+    { ic: 'phone', label: 'Phone', value: user?.phone ?? 'Not added' },
+    { ic: 'mail', label: 'Email', value: email },
     { ic: 'settings', label: 'Settings & privacy', value: '', chevron: true },
   ];
 
@@ -86,10 +155,10 @@ export default function Profile(): React.ReactElement {
         style={{ borderRadius: 20, padding: 18 }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <Avatar initials={profile.initials} size={50} tone="accent" />
+          <Avatar initials={initialsOf(name)} size={50} tone="accent" />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="title" color={colors.onPrimary} numberOfLines={1}>
-              {profile.name}
+              {name}
             </Text>
             <Text
               variant="caption"
@@ -97,7 +166,7 @@ export default function Profile(): React.ReactElement {
               numberOfLines={1}
               style={{ marginTop: 2 }}
             >
-              {profile.email}
+              {email}
             </Text>
           </View>
         </View>
@@ -125,7 +194,7 @@ export default function Profile(): React.ReactElement {
           return (
             <Pressable
               key={label}
-              onPress={() => setBudget(label)}
+              onPress={() => onBudget(label)}
               style={{
                 minHeight: 40,
                 paddingHorizontal: 14,
@@ -147,7 +216,7 @@ export default function Profile(): React.ReactElement {
       {/* Preferred areas */}
       <Eyebrow style={{ marginTop: 22, marginBottom: 10 }}>Preferred areas</Eyebrow>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {areas.map((a) => {
+        {AREAS.map((a) => {
           const on = areaSet.has(a);
           return (
             <Pressable
@@ -179,7 +248,7 @@ export default function Profile(): React.ReactElement {
       <SegmentedControl
         options={SIZE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
         value={size}
-        onChange={(v) => setSize(v)}
+        onChange={(v) => onSize(v)}
       />
 
       {/* Account */}

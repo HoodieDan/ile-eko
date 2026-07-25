@@ -18,8 +18,9 @@ import {
   type SelectOption,
   type SegmentOption,
 } from '@ile-eko/ui';
+import { useCreateProperty, type PaymentFrequency, type PropertyType } from '@ile-eko/core';
 
-type Freq = 'year' | 'biannual' | 'quarter' | 'month';
+type Freq = PaymentFrequency;
 type Occupancy = 'occupied' | 'vacant' | 'mixed';
 
 const AREA_OPTIONS: SelectOption[] = [
@@ -35,22 +36,37 @@ const AREA_OPTIONS: SelectOption[] = [
   'Ikeja',
 ].map((a) => ({ value: a, label: a }));
 
+// Derive the LGA from the selected area (§ Lagos administrative mapping).
+const LGA_BY_AREA: Record<string, string> = {
+  'Lekki Phase 1': 'Eti-Osa',
+  Ikoyi: 'Eti-Osa',
+  'Victoria Island': 'Eti-Osa',
+  Ajah: 'Eti-Osa',
+  Yaba: 'Lagos Mainland',
+  Surulere: 'Surulere',
+  Gbagada: 'Kosofe',
+  Magodo: 'Kosofe',
+  Maryland: 'Kosofe',
+  Ikeja: 'Ikeja',
+};
+
 const TYPE_OPTIONS: SelectOption[] = [
-  'Flat',
-  'Duplex',
-  'Detached house',
-  'Semi-detached',
-  'Self-contain',
-  'Shop / commercial',
-  'Land',
-  'Block of flats',
-].map((t) => ({ value: t, label: t }));
+  { value: 'self-contained', label: 'Self-contain' },
+  { value: 'mini-flat', label: 'Mini flat' },
+  { value: 'one-bedroom', label: '1 bedroom' },
+  { value: 'two-bedroom', label: '2 bedroom' },
+  { value: 'three-bedroom', label: '3 bedroom' },
+  { value: 'duplex', label: 'Duplex' },
+  { value: 'shop', label: 'Shop / commercial' },
+  { value: 'office', label: 'Office' },
+  { value: 'other', label: 'Other' },
+];
 
 const FREQ_OPTIONS: SegmentOption<Freq>[] = [
-  { value: 'year', label: 'Annual' },
+  { value: 'annual', label: 'Annual' },
   { value: 'biannual', label: 'Bi-annual' },
-  { value: 'quarter', label: 'Quarterly' },
-  { value: 'month', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'monthly', label: 'Monthly' },
 ];
 
 const OCCUPANCY_OPTIONS: SegmentOption<Occupancy>[] = [
@@ -117,15 +133,16 @@ function PhotoUpload(): React.ReactElement {
 export default function AddProperty(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
+  const createProperty = useCreateProperty();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<PropertyFormState>({
     title: '',
     address: '',
     area: 'Lekki Phase 1',
-    type: '3-bed flat',
+    type: 'three-bedroom',
     desc: '',
     multi: false,
-    freq: 'year',
+    freq: 'annual',
     occupancy: 'vacant',
   });
 
@@ -133,10 +150,25 @@ export default function AddProperty(): React.ReactElement {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = (): void => {
+  const handleSave = async (): Promise<void> => {
     setSubmitting(true);
-    showToast('Property added');
-    router.back();
+    try {
+      await createProperty.mutateAsync({
+        propertyTitle: form.title.trim() || form.address.trim() || 'Untitled property',
+        address: form.address.trim(),
+        area: form.area,
+        lga: LGA_BY_AREA[form.area] ?? 'Lagos',
+        propertyType: form.type as PropertyType,
+        ...(form.desc.trim() ? { description: form.desc.trim() } : {}),
+        paymentFrequency: form.freq,
+        hasUnits: form.multi,
+      });
+      showToast('Property added');
+      router.back();
+    } catch {
+      setSubmitting(false);
+      showToast('Could not add property');
+    }
   };
 
   return (
@@ -236,7 +268,9 @@ export default function AddProperty(): React.ReactElement {
           variant="primary"
           fullWidth
           loading={submitting}
-          onPress={handleSave}
+          onPress={() => {
+            void handleSave();
+          }}
         />
       </View>
     </Screen>
