@@ -24,6 +24,8 @@ export interface RequestOptions {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined>;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 function buildUrl(baseUrl: string, path: string, query?: RequestOptions['query']): string {
@@ -47,11 +49,13 @@ export function createApiClient({ baseUrl }: ApiClientOptions = {}) {
     const { method = 'GET', body, query, signal } = options;
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      ...options.headers,
     };
 
     const token = await getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
 
     const response = await fetch(buildUrl(resolvedBase, path, query), {
       method,
@@ -103,3 +107,8 @@ function safeParse(text: string): unknown {
 }
 
 export const api = createApiClient();
+
+/** Generates a client-side idempotency key for safely retryable mutations. */
+export function newIdempotencyKey(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
