@@ -2,7 +2,7 @@ import { getToken } from '../auth/storage';
 
 declare const process: { env: Record<string, string | undefined> };
 
-const DEFAULT_BASE_URL = 'http://localhost:4000';
+const DEFAULT_BASE_URL = 'http://localhost:4000/v1';
 
 export class ApiError extends Error {
   constructor(
@@ -27,7 +27,11 @@ export interface RequestOptions {
 }
 
 function buildUrl(baseUrl: string, path: string, query?: RequestOptions['query']): string {
-  const url = new URL(path.startsWith('/') ? path : `/${path}`, baseUrl);
+  // Preserve any base path (e.g. `/v1`): join base + path rather than treating a
+  // leading-slash path as absolute, which would drop the base path.
+  const base = baseUrl.replace(/\/+$/, '');
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  const url = new URL(base + suffix);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined) url.searchParams.set(key, String(value));

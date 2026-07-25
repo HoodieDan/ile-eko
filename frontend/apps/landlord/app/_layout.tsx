@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, createQueryClient } from '@ile-eko/core';
+import { AuthProvider, apiLogin, apiRegister, apiSession, createQueryClient } from '@ile-eko/core';
 import { ThemeProvider, ToastProvider, colors, fontAssets } from '@ile-eko/ui';
 
 void SplashScreen.preventAutoHideAsync();
@@ -25,7 +25,7 @@ export default function RootLayout(): React.ReactElement | null {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <AuthProvider loginFn={apiLogin} registerFn={apiRegister} sessionFn={apiSession}>
           {/* Single Verdant theme — we intentionally ignore the device colour scheme. */}
           <ThemeProvider>
             <ToastProvider>

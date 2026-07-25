@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, createQueryClient } from '@ile-eko/core';
+import { AuthProvider, apiLogin, apiRegister, apiSession, createQueryClient } from '@ile-eko/core';
 import { ThemeProvider, ToastProvider, colors, fontAssets, setActiveTheme } from '@ile-eko/ui';
 
 // The tenant (Homes) app wears the Adire theme so it is instantly
@@ -27,7 +27,7 @@ export default function RootLayout(): React.ReactElement | null {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <AuthProvider loginFn={apiLogin} registerFn={apiRegister} sessionFn={apiSession}>
           {/* Adire theme (set above) — we intentionally ignore the device colour scheme. */}
           <ThemeProvider>
             <ToastProvider>

@@ -32,6 +32,8 @@ export interface AuthProviderProps {
   children: React.ReactNode;
   loginFn?: (input: LoginInput) => Promise<{ token: string; user: User }>;
   registerFn?: (input: RegisterInput) => Promise<{ token: string; user: User }>;
+  /** Hydrate the user from a stored token on boot; return null if the token is invalid. */
+  sessionFn?: () => Promise<User | null>;
 }
 
 async function defaultLoginStub(input: LoginInput): Promise<{ token: string; user: User }> {
@@ -66,6 +68,7 @@ export function AuthProvider({
   children,
   loginFn = defaultLoginStub,
   registerFn = defaultRegisterStub,
+  sessionFn,
 }: AuthProviderProps): React.ReactElement {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -78,16 +81,28 @@ export function AuthProvider({
     (async () => {
       const token = await getToken();
       if (cancelled) return;
-      setState({
-        user: null,
-        token,
-        status: token ? 'authenticated' : 'unauthenticated',
-      });
+      if (!token) {
+        setState({ user: null, token: null, status: 'unauthenticated' });
+        return;
+      }
+      // Hydrate the user from the token; clear it if the session is invalid.
+      if (sessionFn) {
+        const user = await sessionFn();
+        if (cancelled) return;
+        if (user) {
+          setState({ user, token, status: 'authenticated' });
+        } else {
+          await clearToken();
+          setState({ user: null, token: null, status: 'unauthenticated' });
+        }
+      } else {
+        setState({ user: null, token, status: 'authenticated' });
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionFn]);
 
   const login = useCallback(
     async (input: LoginInput) => {
