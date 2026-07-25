@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
+  Animated,
   Pressable,
   TextInput,
   View,
@@ -32,7 +33,11 @@ export interface InputProps {
 
 /**
  * Text field with optional label, lead icon, password reveal and error state.
- * 54px min height, 4px focus ring (Design System §06).
+ *
+ * The focus ring is driven by an Animated value (not React state) on purpose:
+ * calling setState inside onFocus re-renders the TextInput's own subtree, which
+ * on the iOS New Architecture immediately blurs the field (keyboard flickers and
+ * drops). Animating avoids any re-render on focus, so the keyboard stays up.
  */
 export function Input({
   label,
@@ -50,10 +55,17 @@ export function Input({
   inputStyle,
   containerStyle,
 }: InputProps): React.ReactElement {
-  const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(secureTextEntry);
+  const focusAnim = useRef(new Animated.Value(0)).current;
   const hasError = !!error;
-  const borderColor = hasError ? colors.danger : focused ? colors.primary : colors.line;
+
+  const borderColor = hasError
+    ? colors.danger
+    : focusAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.line, colors.primary] });
+
+  const animateFocus = (to: number): void => {
+    Animated.timing(focusAnim, { toValue: to, duration: 140, useNativeDriver: false }).start();
+  };
 
   return (
     <View style={containerStyle}>
@@ -62,28 +74,17 @@ export function Input({
           {label}
         </Text>
       ) : null}
-      <View
-        style={[
-          {
-            flexDirection: 'row',
-            alignItems: multiline ? 'flex-start' : 'center',
-            minHeight: multiline ? 96 : 54,
-            borderRadius: 14,
-            borderWidth: 1.5,
-            borderColor,
-            backgroundColor: colors.surface,
-            paddingHorizontal: 16,
-          },
-          focused && !hasError
-            ? {
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.18,
-                shadowRadius: 4,
-                elevation: 0,
-              }
-            : null,
-        ]}
+      <Animated.View
+        style={{
+          flexDirection: 'row',
+          alignItems: multiline ? 'flex-start' : 'center',
+          minHeight: multiline ? 96 : 54,
+          borderRadius: 14,
+          borderWidth: 1.5,
+          borderColor,
+          backgroundColor: colors.surface,
+          paddingHorizontal: 16,
+        }}
       >
         {icon ? <Icon name={icon} size={19} color={colors.muted} /> : null}
         <TextInput
@@ -97,8 +98,8 @@ export function Input({
           autoCorrect={autoCorrect}
           multiline={multiline}
           editable={editable}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onFocus={() => animateFocus(1)}
+          onBlur={() => animateFocus(0)}
           style={[
             {
               flex: 1,
@@ -117,7 +118,7 @@ export function Input({
             <Icon name={hidden ? 'eye' : 'eyeOff'} size={20} color={colors.muted} />
           </Pressable>
         ) : null}
-      </View>
+      </Animated.View>
       {hasError ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 }}>
           <Icon name="alert" size={14} color={colors.danger} strokeWidth={2} />
