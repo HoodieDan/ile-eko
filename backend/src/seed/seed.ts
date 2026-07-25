@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { connectDb, disconnectDb } from '../config/db';
 import { env, isProd } from '../config/env';
 import { hashPassword } from '../utils/password';
-import { Property, Tenant, User } from '../models';
+import { Listing, Property, Tenant, User } from '../models';
 import { createLease } from '../services/ledger';
 import { ensureListingsForProperty } from '../services/listingProjection';
 import { withTxn } from '../utils/withTxn';
@@ -27,12 +27,12 @@ export async function seed(): Promise<void> {
   const creds = { landlord: pwd(), caretaker: pwd(), tenant: pwd(), admin: pwd() };
 
   const [landlord] = await User.create([
-    { fullName: 'Demo Landlord', email: 'landlord@demo.ile-eko', password: await hashPassword(creds.landlord), role: 'landlord', isVerified: true },
+    { fullName: 'Demo Landlord', email: 'landlord@example.com', password: await hashPassword(creds.landlord), role: 'landlord', isVerified: true },
   ]);
   await User.create([
-    { fullName: 'Demo Tenant', email: 'tenant@demo.ile-eko', password: await hashPassword(creds.tenant), role: 'tenant', isVerified: true },
+    { fullName: 'Demo Tenant', email: 'tenant@example.com', password: await hashPassword(creds.tenant), role: 'tenant', isVerified: true },
     // Admin is provisioned out-of-band, with a RANDOM password and non-default email.
-    { fullName: 'Ops Admin', email: `admin+${randomBytes(4).toString('hex')}@demo.ile-eko`, password: await hashPassword(creds.admin), role: 'admin', isVerified: true },
+    { fullName: 'Ops Admin', email: `admin+${randomBytes(4).toString('hex')}@example.com`, password: await hashPassword(creds.admin), role: 'admin', isVerified: true },
   ]);
 
   // Standalone Yaba studio + tenant + active lease.
@@ -52,14 +52,16 @@ export async function seed(): Promise<void> {
     { userId: landlord!.id, name: landlord!.fullName },
   );
 
-  // A vacant, listable Lekki mini-flat.
-  await Property.create([
+  // A vacant Lekki mini-flat, listed on the marketplace so the tenant app has an entry.
+  const [lekki] = await Property.create([
     {
       landlordId: landlord!._id, propertyTitle: 'Lekki Phase 1 Mini-flat', address: '8 Admiralty Way', area: 'Lekki',
       lga: 'Eti-Osa', propertyType: 'mini-flat', description: 'Bright self-contained mini-flat.',
       paymentFrequency: 'annual', rentAmount: 2400000, bedrooms: 1, bathrooms: 1, amenities: ['water', 'parking'], statusCache: 'vacant',
     },
   ]);
+  await withTxn((s) => ensureListingsForProperty(s, lekki!));
+  await Listing.updateOne({ propertyId: lekki!._id }, { $set: { listed: true, listedAt: new Date() } });
 
   // eslint-disable-next-line no-console
   console.log('Seed complete. One-time credentials (store securely):\n' + JSON.stringify(creds, null, 2));
