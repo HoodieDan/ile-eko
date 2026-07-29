@@ -16,6 +16,16 @@ export default defineConfig({
       JWT_SECRET: 'test-secret-at-least-16-characters-long',
       JWT_EXPIRES_IN: '7d',
       MONGODB_URI: 'mongodb://127.0.0.1:27017/ile-eko-test-placeholder',
+      // Blank every external-service credential so a developer's local .env can
+      // never leak into the suite: real keys would make tests hit live APIs
+      // (billable, slow, non-deterministic) and break the degraded-path tests.
+      AI_API_KEY: '',
+      RESEND_API_KEY: '',
+      CLOUDINARY_URL: '',
+      CLOUDINARY_CLOUD_NAME: '',
+      CLOUDINARY_API_KEY: '',
+      CLOUDINARY_API_SECRET: '',
+      EXPO_ACCESS_TOKEN: '',
     },
   },
 });

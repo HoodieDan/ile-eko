@@ -113,7 +113,10 @@ export async function briefing(landlordId: string): Promise<BriefingDTO> {
     const obj = await withRetry(() =>
       getEngine().generateObject({
         schema: BriefingObject,
-        system: 'Narrate and prioritize the landlord metrics into a briefing. Do not invent numbers.',
+        system:
+          'Narrate and prioritize the landlord metrics into a briefing for a Lagos landlord. ' +
+          'Do not invent numbers. All amounts are Nigerian Naira — always format them with the ' +
+          '₦ symbol (e.g. ₦900,000), never $ or USD. Keep each point to one short sentence.',
         prompt: JSON.stringify(s),
       }),
     );
@@ -175,7 +178,9 @@ export async function rentSuggestion(landlordId: string, propertyId: string): Pr
     const obj = await withRetry(() =>
       getEngine().generateObject({
         schema: RentSuggestionObject,
-        system: 'Suggest a fair annual rent (integer Naira) from the target and comparables. Return a short rationale.',
+        system:
+          'Suggest a fair annual rent (integer Naira) from the target and comparables. ' +
+          'Return a short rationale. Amounts are Nigerian Naira — write them with ₦, never $.',
         prompt: JSON.stringify({ target: { area: property.area, type: property.propertyType, currentRent }, comparables }),
       }),
     );
