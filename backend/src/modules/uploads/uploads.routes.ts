@@ -53,10 +53,11 @@ uploadsRouter.post(
   }),
 );
 
+// Verifies the asset really landed in storage, then returns its delivery URL.
 uploadsRouter.post(
   '/finalize',
   validate(FinalizeUploadInput),
   asyncHandler(async (req, res) => {
-    res.json(await finalizeUpload(req.body.objectKey));
+    res.json(await finalizeUpload(req.body.objectKey as string));
   }),
 );

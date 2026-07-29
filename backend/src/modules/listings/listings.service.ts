@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Types } from 'mongoose';
 import { AppError } from '../../utils/AppError';
 import { Listing, ListingView, SavedListing, type ListingDoc } from '../../models';
+import { urlsFor } from '../../services/storage';
 import type {
   ListingDetail,
   ListingFilters,
@@ -30,7 +31,7 @@ function summary(l: ListingDoc): ListingSummary {
 }
 
 function detail(l: ListingDoc): ListingDetail {
-  return { ...summary(l), description: l.description ?? '', images: l.images ?? [] };
+  return { ...summary(l), description: l.description ?? '', images: urlsFor(l.images) };
 }
 
 function buildQuery(filters: ParsedSearchFilters & ListingFilters): Record<string, unknown> {

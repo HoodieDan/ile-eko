@@ -31,6 +31,17 @@ const EnvSchema = z.object({
     .enum(['0', '1'])
     .default('0')
     .transform((v) => v === '1'),
+
+  // --- Image storage: Cloudinary. Unset → uploads are disabled (503, not a fake URL). ---
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // --- Transactional email: Resend. Unset → invites fall back to a share link. ---
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('onboarding@resend.dev'),
+  // Public app/deep-link base used in invite emails.
+  APP_INVITE_BASE_URL: z.string().default('ileeko://invite'),
 });
 
 export type AppConfig = z.infer<typeof EnvSchema> & { corsOrigins: string[] };
@@ -55,3 +66,9 @@ export const env = load();
 
 export const isProd = env.NODE_ENV === 'production';
 export const isTest = env.NODE_ENV === 'test';
+
+/** Optional integrations — features degrade explicitly when these are absent. */
+export const hasCloudinary = Boolean(
+  env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET,
+);
+export const hasResend = Boolean(env.RESEND_API_KEY);

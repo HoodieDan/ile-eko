@@ -21,6 +21,7 @@ import type {
 } from '../contracts';
 import type { OccupancyStatus, PaymentFrequency, PaymentMethod } from '../contracts';
 import type { TenantLeaseFacts } from '../services/stats';
+import { urlsFor, urlFor } from '../services/storage';
 
 const iso = (d: Date | string) => (typeof d === 'string' ? d : d.toISOString());
 const dateOnly = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
@@ -35,7 +36,7 @@ export function presentProperty(p: PropertyDoc, unitCount: number): PropertyDTO 
     lga: p.lga,
     propertyType: p.propertyType as PropertyDTO['propertyType'],
     description: p.description ?? '',
-    images: p.images ?? [],
+    images: urlsFor(p.images),
     hasUnits: Boolean(p.hasUnits),
     ...(p.bedrooms != null ? { bedrooms: p.bedrooms } : {}),
     ...(p.bathrooms != null ? { bathrooms: p.bathrooms } : {}),
@@ -63,7 +64,7 @@ export function presentUnit(u: UnitDoc): UnitDTO {
     rentAmount: u.rentAmount,
     paymentFrequency: (u.paymentFrequency ?? 'annual') as PaymentFrequency,
     amenities: u.amenities ?? [],
-    images: u.images ?? [],
+    images: urlsFor(u.images),
     status: (u.statusCache ?? 'vacant') as OccupancyStatus,
     createdAt: iso(u.createdAt as Date),
     updatedAt: iso(u.updatedAt as Date),
@@ -158,7 +159,7 @@ export function presentPayment(p: PaymentDoc): PaymentDTO {
     method: p.method as PaymentMethod,
     ...(p.methodDetail ? { methodDetail: p.methodDetail } : {}),
     ...(p.periodCovered ? { periodCovered: p.periodCovered } : {}),
-    ...(p.receiptKey ? { receiptKey: p.receiptKey } : {}),
+    ...(p.receiptKey ? { receiptKey: urlFor(p.receiptKey) } : {}),
     ...(p.reversalOfPaymentId ? { reversalOfPaymentId: String(p.reversalOfPaymentId) } : {}),
     ...(p.notes ? { notes: p.notes } : {}),
     createdAt: iso(p.createdAt as Date),

@@ -11,11 +11,23 @@ export const SignUploadInput = z.object({
 });
 export type SignUploadInput = z.infer<typeof SignUploadInput>;
 
+/** Signed direct-upload envelope: the client POSTs `file` + these fields to uploadUrl. */
 export const SignUploadResponse = z.object({
   uploadUrl: z.string(),
   objectKey: z.string(),
+  fields: z.object({
+    api_key: z.string(),
+    timestamp: z.number(),
+    signature: z.string(),
+    public_id: z.string(),
+    folder: z.string(),
+    type: z.string(),
+  }),
 });
 export type SignUploadResponse = z.infer<typeof SignUploadResponse>;
 
 export const FinalizeUploadInput = z.object({ objectKey: z.string().min(1) });
 export type FinalizeUploadInput = z.infer<typeof FinalizeUploadInput>;
+
+export const FinalizeUploadResponse = z.object({ objectKey: z.string(), url: z.string() });
+export type FinalizeUploadResponse = z.infer<typeof FinalizeUploadResponse>;

@@ -12,6 +12,8 @@ import {
   type MembershipDoc,
 } from '../../models';
 import { emitActivity } from '../../services/activityLog';
+import { caretakerInviteEmail, sendEmail } from '../../services/email';
+import { env } from '../../config/env';
 import type {
   AcceptInviteInput,
   CaretakerSummaryDTO,
@@ -66,7 +68,14 @@ export async function invite(
   landlordId: string,
   actor: Actor,
   input: InviteInput,
-): Promise<{ invitationId: string; token: string; shareUrl: string }> {
+): Promise<{
+  invitationId: string;
+  token: string;
+  shareUrl: string;
+  /** Whether the invite email was accepted by the provider (false → share the link). */
+  emailed: boolean;
+  emailError?: string;
+}> {
   // All granted properties must belong to the landlord.
   for (const g of input.grants) {
     if (!Types.ObjectId.isValid(g.propertyId)) throw AppError.badRequest('Invalid propertyId');
@@ -101,8 +110,25 @@ export async function invite(
     });
   });
 
-  // Delivery via email/SMS lands in M6; for now the landlord shares the link.
-  return { invitationId: invitation.id, token, shareUrl: `ileeko://invite/${token}` };
+  const shareUrl = `${env.APP_INVITE_BASE_URL}/${token}`;
+
+  // Try to email the invite; if mail isn't configured/fails the landlord can
+  // still share `shareUrl` manually, so this never fails the request.
+  let emailed = false;
+  let emailError: string | undefined;
+  if (input.email) {
+    const mail = caretakerInviteEmail({
+      inviteeName: input.name,
+      landlordName: actor.name,
+      inviteUrl: shareUrl,
+      propertyCount: input.grants.length,
+    });
+    const res = await sendEmail({ to: input.email, subject: mail.subject, html: mail.html, text: mail.text });
+    emailed = res.sent;
+    emailError = res.reason;
+  }
+
+  return { invitationId: invitation.id, token, shareUrl, emailed, ...(emailError ? { emailError } : {}) };
 }
 
 export async function resend(landlordId: string, invitationId: string): Promise<{ token: string }> {

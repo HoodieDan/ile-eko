@@ -9,3 +9,4 @@ export * from './useActivity';
 export * from './useMarketplace';
 export * from './useAI';
 export * from './useAccount';
+export * from './useUpload';
