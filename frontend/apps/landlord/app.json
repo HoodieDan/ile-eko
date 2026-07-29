@@ -27,10 +27,15 @@
       }
     },
     "android": {
-      "package": "com.ileeko.landlord"
+      "package": "com.ileeko.landlord",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F3D2E"
+      }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -38,6 +43,9 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
           "backgroundColor": "#0F3D2E"
         }
       ],
@@ -55,6 +63,7 @@
       "eas": {
         "projectId": "4b75de0d-49bc-4b57-b3be-98d3dd0cdbfa"
       }
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }

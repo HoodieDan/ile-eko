@@ -27,10 +27,15 @@
       }
     },
     "android": {
-      "package": "com.ileeko.homes"
+      "package": "com.ileeko.homes",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#171B45"
+      }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -38,6 +43,9 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
           "backgroundColor": "#171B45"
         }
       ]
@@ -49,6 +57,7 @@
       "eas": {
         "projectId": "5807abab-fa24-4bd7-acaa-ffcefa68f315"
       }
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }
