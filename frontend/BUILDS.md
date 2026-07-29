@@ -4,8 +4,8 @@ Two Expo apps, each its own EAS project:
 
 | App | Directory | Slug | EAS project id |
 |---|---|---|---|
-| Ilé Èkó (landlord) | `apps/landlord` | `ile-eko` | `f6b31e93-9b6a-4f53-bd57-2c319a9243f1` |
-| Ilé Èkó Homes (tenant) | `apps/tenant` | `ile-eko-homes` | `91017f07-4da0-4f8d-a05f-10ed1251c59b` |
+| Ilé Èkó (landlord) | `apps/landlord` | `ile-eko` | `4b75de0d-49bc-4b57-b3be-98d3dd0cdbfa` |
+| Ilé Èkó Homes (tenant) | `apps/tenant` | `ile-eko-homes` | `5807abab-fa24-4bd7-acaa-ffcefa68f315` |
 
 ## One-time setup
 

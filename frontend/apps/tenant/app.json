@@ -9,7 +9,7 @@
     "backgroundColor": "#ECEEF6",
     "newArchEnabled": true,
     "updates": {
-      "url": "https://u.expo.dev/91017f07-4da0-4f8d-a05f-10ed1251c59b",
+      "url": "https://u.expo.dev/5807abab-fa24-4bd7-acaa-ffcefa68f315",
       "fallbackToCacheTimeout": 0
     },
     "runtimeVersion": {
@@ -42,7 +42,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "91017f07-4da0-4f8d-a05f-10ed1251c59b"
+        "projectId": "5807abab-fa24-4bd7-acaa-ffcefa68f315"
       }
     }
   }
