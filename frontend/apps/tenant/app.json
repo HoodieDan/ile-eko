@@ -15,10 +15,6 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "splash": {
-      "backgroundColor": "#171B45",
-      "resizeMode": "contain"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -38,7 +34,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#171B45"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

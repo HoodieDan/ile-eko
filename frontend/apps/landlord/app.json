@@ -15,10 +15,6 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "splash": {
-      "backgroundColor": "#0F3D2E",
-      "resizeMode": "contain"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -39,6 +35,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F3D2E"
+        }
+      ],
       [
         "expo-image-picker",
         {
