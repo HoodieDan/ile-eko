@@ -1,18 +1,27 @@
 {
   "expo": {
     "name": "Ilé Èkó",
-    "slug": "ile-eko-landlord",
+    "slug": "ile-eko",
     "scheme": "ileeko",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F1EDE4",
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/f6b31e93-9b6a-4f53-bd57-2c319a9243f1",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "backgroundColor": "#0F3D2E",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ileeko.landlord",

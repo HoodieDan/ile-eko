@@ -1,0 +1,120 @@
+# Publishes an EAS Update preview for every pull request that touches the apps,
+# and comments the QR codes / links on the PR.
+#
+# Why updates and not builds: a full `eas build` takes ~15-25 min and consumes
+# the free tier's monthly build quota, so it can't run per-PR. An EAS Update
+# ships the JS bundle in ~1 min and opens inside an existing development build.
+#
+# One-time setup:
+#   1. expo.dev → Account Settings → Access Tokens → create a token
+#   2. GitHub repo → Settings → Secrets and variables → Actions → new secret
+#      EXPO_TOKEN = <that token>
+#   3. Install a development build once per device:
+#        pnpm build:landlord:dev   /   pnpm build:tenant:dev
+#      Reviewers scan the PR's QR code from inside that build.
+name: eas-pr-preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/eas-pr-preview.yml'
+
+concurrency:
+  # One preview per PR; a new push supersedes the in-flight run.
+  group: eas-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect which apps changed
+    runs-on: ubuntu-latest
+    outputs:
+      landlord: ${{ steps.filter.outputs.landlord }}
+      tenant: ${{ steps.filter.outputs.tenant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared: &shared
+              - 'frontend/packages/**'
+              - 'frontend/package.json'
+              - 'frontend/pnpm-lock.yaml'
+            landlord:
+              - *shared
+              - 'frontend/apps/landlord/**'
+            tenant:
+              - *shared
+              - 'frontend/apps/tenant/**'
+
+  preview:
+    name: Preview (${{ matrix.app }})
+    needs: changes
+    # Skip forks: they cannot read EXPO_TOKEN, so the job would only ever fail.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: landlord
+            changed: ${{ needs.changes.outputs.landlord }}
+          - app: tenant
+            changed: ${{ needs.changes.outputs.tenant }}
+    defaults:
+      run:
+        working-directory: frontend/apps/${{ matrix.app }}
+    steps:
+      - name: Checkout
+        if: matrix.changed == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        if: matrix.changed == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.3
+
+      - name: Setup Node
+        if: matrix.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.5
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup EAS
+        if: matrix.changed == 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        if: matrix.changed == 'true'
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        if: matrix.changed == 'true'
+        working-directory: frontend
+        run: pnpm exec turbo run typecheck --filter=${{ matrix.app }}
+
+      - name: Publish preview update + comment on the PR
+        if: matrix.changed == 'true'
+        uses: expo/expo-github-action/preview@v8
+        env:
+          # Passed via env, never interpolated into the command string: a PR
+          # title is attacker-controlled text and `${{ }}` inlining would let it
+          # break out of the quotes and run arbitrary shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.number }}
+        with:
+          working-directory: frontend/apps/${{ matrix.app }}
+          comment: true
+          # A branch per PR per app keeps previews isolated from each other.
+          # $PR_TITLE is expanded by the shell at runtime, not spliced in by Actions.
+          command: eas update --branch "pr-${PR_NUMBER}-${{ matrix.app }}" --message "PR #${PR_NUMBER}: ${PR_TITLE}"

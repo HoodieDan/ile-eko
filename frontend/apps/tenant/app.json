@@ -8,11 +8,20 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#ECEEF6",
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/91017f07-4da0-4f8d-a05f-10ed1251c59b",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "backgroundColor": "#171B45",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ileeko.homes",
@@ -24,7 +33,10 @@
     "web": {
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
     "experiments": {
       "typedRoutes": true
     },
