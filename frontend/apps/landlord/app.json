@@ -25,7 +25,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ileeko.landlord",
-      "userInterfaceStyle": "light"
+      "userInterfaceStyle": "light",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.ileeko.landlord"
