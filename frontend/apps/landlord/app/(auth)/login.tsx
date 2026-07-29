@@ -48,10 +48,6 @@ export default function Login(): React.ReactElement {
     setTouched({ email: true, password: true });
     setFormError('');
     if (emailErr || passwordErr) return;
-    if (password.toLowerCase() === 'wrong') {
-      setFormError('Incorrect email or password. Please try again.');
-      return;
-    }
     try {
       setLoading(true);
       await login({ email, password });
@@ -65,8 +61,8 @@ export default function Login(): React.ReactElement {
   }
 
   function useDemo(): void {
-    setEmail('adeola@balogun.ng');
-    setPassword('demo1234');
+    setEmail('landlord@example.com');
+    setPassword('Password123?');
     setTouched({ email: false, password: false });
     setFormError('');
   }
@@ -160,18 +156,6 @@ export default function Login(): React.ReactElement {
         style={{ marginTop: spacing['2xl'], lineHeight: 18 }}
       >
         By continuing you agree to our Terms & Privacy Policy.
-      </Text>
-      <Text
-        variant="caption"
-        color={colors.muted}
-        center
-        style={{ marginTop: spacing.xs, lineHeight: 18, opacity: 0.7 }}
-      >
-        Demo: password{' '}
-        <Text variant="caption" color={colors.ink} style={{ fontWeight: '600' }}>
-          wrong
-        </Text>{' '}
-        triggers the error state.
       </Text>
     </Screen>
   );

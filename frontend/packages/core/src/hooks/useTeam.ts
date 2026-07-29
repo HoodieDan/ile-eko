@@ -25,10 +25,19 @@ export function useCaretakers() {
   });
 }
 
+/** Per-property caretaker permission flags (matches the API's CaretakerPermissions). */
+export interface CaretakerPermissions {
+  canLogPayments?: boolean;
+  canEditTenants?: boolean;
+  canUploadImages?: boolean;
+  canManageUnits?: boolean;
+  canEditProperty?: boolean;
+}
+
 export interface CaretakerGrant {
   propertyId: string;
-  role?: string;
-  permissions?: string[];
+  role?: 'caretaker' | 'viewer';
+  permissions?: CaretakerPermissions;
 }
 
 export interface InviteCaretakerInput {
@@ -38,11 +47,22 @@ export interface InviteCaretakerInput {
   grants: CaretakerGrant[];
 }
 
+export interface InviteCaretakerResult {
+  invitationId: string;
+  token: string;
+  shareUrl: string;
+  /** False when mail isn't configured or was rejected — show `shareUrl` instead. */
+  emailed: boolean;
+  emailError?: string;
+}
+
 export function useInviteCaretaker() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: InviteCaretakerInput) =>
-      api.post('/team/invite', input, { idempotencyKey: newIdempotencyKey() }),
+  return useMutation<InviteCaretakerResult, Error, InviteCaretakerInput>({
+    mutationFn: (input) =>
+      api.post<InviteCaretakerResult>('/team/invite', input, {
+        idempotencyKey: newIdempotencyKey(),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['team'] });
     },

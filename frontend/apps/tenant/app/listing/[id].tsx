@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Chip,
+  EmptyState,
   Icon,
   IconButton,
   Text,
@@ -80,7 +81,7 @@ export default function ListingDetail(): React.ReactElement | null {
   const { showToast } = useToast();
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: l, isLoading } = useListing(id);
+  const { data: l, isLoading, isError, refetch } = useListing(id);
   const recordView = useRecordView();
   const saveListing = useSaveListing();
   const unsaveListing = useUnsaveListing();
@@ -106,7 +107,32 @@ export default function ListingDetail(): React.ReactElement | null {
     );
   }
 
-  if (!l) return null;
+  // Error or not-found: never a blank screen — the back control stays reachable.
+  if (isError || !l) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
+        <StatusBar style="dark" />
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.xl,
+            paddingVertical: spacing.md,
+          }}
+        >
+          <IconButton name="back" variant="surface" onPress={() => router.back()} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
+          <EmptyState
+            icon="alert"
+            title="Couldn't load this home"
+            message="Check your connection and try again."
+          />
+          <Button title="Try again" variant="secondary" onPress={() => void refetch()} />
+        </View>
+      </View>
+    );
+  }
 
   const saved = l.saved ?? false;
   const initials = initialsOf(l.landlordName);

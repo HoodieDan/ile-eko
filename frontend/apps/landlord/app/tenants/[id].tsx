@@ -16,6 +16,7 @@ import {
   IconButton,
   Timeline,
   TimelineItem,
+  EmptyState,
   PropertyThumb,
   useToast,
   colors,
@@ -129,7 +130,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showToast } = useToast();
 
-  const { data: t, isLoading } = useTenant(id);
+  const { data: t, isLoading, isError, refetch } = useTenant(id);
   const { data: prop } = useProperty(t?.propertyId);
 
   if (isLoading) {
@@ -143,7 +144,22 @@ export default function TenantDetailScreen(): React.ReactElement | null {
     );
   }
 
-  if (!t) return null;
+  // Error or not-found: never a blank screen — always a way back plus a retry.
+  if (isError || !t) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <AppBar title="Tenant" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
+          <EmptyState
+            icon="alert"
+            title="Couldn't load this tenant"
+            message="Check your connection and try again."
+          />
+          <Button title="Try again" variant="secondary" onPress={() => void refetch()} />
+        </View>
+      </View>
+    );
+  }
 
   const risk = t.risk ? RISK_STYLE[t.risk.band] : null;
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -18,10 +18,16 @@ import {
   type SelectOption,
   type SegmentOption,
 } from '@ile-eko/ui';
-import { useCreateProperty, type PaymentFrequency, type PropertyType } from '@ile-eko/core';
+import {
+  api,
+  useCreateProperty,
+  useUpload,
+  type PaymentFrequency,
+  type PropertyType,
+} from '@ile-eko/core';
+import { pickImages, type PickedImage } from '../../src/media/pickImages';
 
 type Freq = PaymentFrequency;
-type Occupancy = 'occupied' | 'vacant' | 'mixed';
 
 const AREA_OPTIONS: SelectOption[] = [
   'Lekki Phase 1',
@@ -69,28 +75,47 @@ const FREQ_OPTIONS: SegmentOption<Freq>[] = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
-const OCCUPANCY_OPTIONS: SegmentOption<Occupancy>[] = [
-  { value: 'occupied', label: 'Occupied' },
-  { value: 'vacant', label: 'Vacant' },
-  { value: 'mixed', label: 'Mixed' },
-];
-
 interface PropertyFormState {
   title: string;
   address: string;
   area: string;
   type: string;
   desc: string;
+  /** Annual rent in whole Naira, kept digits-only. */
+  rent: string;
+  bedrooms: string;
+  bathrooms: string;
   multi: boolean;
   freq: Freq;
-  occupancy: Occupancy;
 }
 
-function PhotoUpload(): React.ReactElement {
-  const tones = [198, 28, 88];
+/** Strips everything but digits so the rent stays an integer-Naira string. */
+function digitsOnly(t: string): string {
+  return t.replace(/[^0-9]/g, '');
+}
+
+interface PhotoUploadProps {
+  photos: PickedImage[];
+  onAdd: () => void;
+  onRemove: (uri: string) => void;
+  disabled?: boolean;
+}
+
+/**
+ * Photos are picked locally and only uploaded after the property exists —
+ * `/uploads/sign` enforces ownership of a real resourceId (§9).
+ */
+function PhotoUpload({
+  photos,
+  onAdd,
+  onRemove,
+  disabled = false,
+}: PhotoUploadProps): React.ReactElement {
   return (
-    <View style={{ flexDirection: 'row', gap: 10 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       <Pressable
+        onPress={onAdd}
+        disabled={disabled}
         style={{
           width: 92,
           height: 92,
@@ -101,6 +126,7 @@ function PhotoUpload(): React.ReactElement {
           backgroundColor: colors.surface2,
           alignItems: 'center',
           justifyContent: 'center',
+          opacity: disabled ? 0.5 : 1,
         }}
       >
         <Icon name="upload" size={22} color={colors.muted} />
@@ -108,22 +134,36 @@ function PhotoUpload(): React.ReactElement {
           Add photo
         </Text>
       </Pressable>
-      {tones.map((t, i) => (
+      {photos.map((photo) => (
         <View
-          key={t}
+          key={photo.uri}
           style={{
             width: 92,
             height: 92,
             borderRadius: 14,
             overflow: 'hidden',
-            backgroundColor: colors.primaryTint,
-            justifyContent: 'flex-end',
-            padding: 6,
+            backgroundColor: colors.surface2,
           }}
         >
-          <Text variant="label" color={colors.muted} style={{ fontSize: 8.5 }}>
-            PHOTO {i + 1}
-          </Text>
+          <Image source={{ uri: photo.uri }} style={{ width: '100%', height: '100%' }} />
+          <Pressable
+            onPress={() => onRemove(photo.uri)}
+            disabled={disabled}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              top: 5,
+              right: 5,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: 'rgba(15,16,14,0.62)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="x" size={13} color="#FFFFFF" strokeWidth={2.6} />
+          </Pressable>
         </View>
       ))}
     </View>
@@ -134,39 +174,113 @@ export default function AddProperty(): React.ReactElement {
   const router = useRouter();
   const { showToast } = useToast();
   const createProperty = useCreateProperty();
+  const upload = useUpload();
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [photos, setPhotos] = useState<PickedImage[]>([]);
   const [form, setForm] = useState<PropertyFormState>({
     title: '',
     address: '',
     area: 'Lekki Phase 1',
     type: 'three-bedroom',
     desc: '',
+    rent: '',
+    bedrooms: '',
+    bathrooms: '',
     multi: false,
     freq: 'annual',
-    occupancy: 'vacant',
   });
 
   const set = <K extends keyof PropertyFormState>(key: K, value: PropertyFormState[K]): void => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const rentAmount = form.rent ? Number(form.rent) : 0;
+  const titleErr = form.title.trim() ? '' : 'Give this property a title';
+  const addressErr = form.address.trim() ? '' : 'Enter the full address';
+  const rentErr = rentAmount > 0 ? '' : 'Enter the annual rent';
+  const invalid = Boolean(titleErr || addressErr || rentErr);
+
+  const addPhotos = async (): Promise<void> => {
+    const result = await pickImages({ multiple: true });
+    if (result.status === 'denied') {
+      showToast('Photo library access is off', 'alert');
+      return;
+    }
+    if (result.status === 'cancelled') return;
+    setPhotos((prev) => {
+      const seen = new Set(prev.map((p) => p.uri));
+      return [...prev, ...result.images.filter((p) => !seen.has(p.uri))];
+    });
+  };
+
+  const removePhoto = (uri: string): void => {
+    setPhotos((prev) => prev.filter((p) => p.uri !== uri));
+  };
+
+  /**
+   * Uploads the picked photos against the freshly-created property and persists
+   * the returned object keys. Returns false if anything failed — the property
+   * itself is already saved either way, so we never discard the user's work.
+   */
+  const attachPhotos = async (propertyId: string): Promise<boolean> => {
+    try {
+      const keys: string[] = [];
+      for (const photo of photos) {
+        const { objectKey } = await upload.mutateAsync({
+          kind: 'property',
+          resourceId: propertyId,
+          uri: photo.uri,
+          ...(photo.mimeType ? { mimeType: photo.mimeType } : {}),
+          ...(photo.sizeBytes !== undefined ? { sizeBytes: photo.sizeBytes } : {}),
+          ...(photo.fileName ? { fileName: photo.fileName } : {}),
+        });
+        keys.push(objectKey);
+      }
+      await api.patch(`/properties/${propertyId}`, { images: keys });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleSave = async (): Promise<void> => {
+    setSubmitted(true);
+    if (invalid) {
+      showToast('Check the highlighted fields', 'alert');
+      return;
+    }
     setSubmitting(true);
     try {
-      await createProperty.mutateAsync({
-        propertyTitle: form.title.trim() || form.address.trim() || 'Untitled property',
+      const bedrooms = form.bedrooms ? Number(form.bedrooms) : undefined;
+      const bathrooms = form.bathrooms ? Number(form.bathrooms) : undefined;
+      const created = await createProperty.mutateAsync({
+        propertyTitle: form.title.trim(),
         address: form.address.trim(),
         area: form.area,
         lga: LGA_BY_AREA[form.area] ?? 'Lagos',
         propertyType: form.type as PropertyType,
         ...(form.desc.trim() ? { description: form.desc.trim() } : {}),
+        rentAmount,
+        ...(bedrooms !== undefined ? { bedrooms } : {}),
+        ...(bathrooms !== undefined ? { bathrooms } : {}),
         paymentFrequency: form.freq,
         hasUnits: form.multi,
       });
-      showToast('Property added');
+
+      if (photos.length > 0) {
+        setUploadingPhotos(true);
+        const ok = await attachPhotos(created.id);
+        setUploadingPhotos(false);
+        showToast(ok ? 'Property added' : "Property added, but the photos didn't upload");
+      } else {
+        showToast('Property added');
+      }
       router.back();
     } catch {
       setSubmitting(false);
+      setUploadingPhotos(false);
       showToast('Could not add property');
     }
   };
@@ -181,6 +295,7 @@ export default function AddProperty(): React.ReactElement {
           value={form.title}
           onChangeText={(t) => set('title', t)}
           placeholder="e.g. 14 Admiralty Way"
+          error={submitted ? titleErr || undefined : undefined}
         />
 
         <Input
@@ -188,6 +303,7 @@ export default function AddProperty(): React.ReactElement {
           value={form.address}
           onChangeText={(t) => set('address', t)}
           placeholder="Street, area, city"
+          error={submitted ? addressErr || undefined : undefined}
         />
 
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -208,6 +324,35 @@ export default function AddProperty(): React.ReactElement {
         </View>
 
         <Input
+          label="Annual rent"
+          icon="wallet"
+          value={form.rent}
+          onChangeText={(t) => set('rent', digitsOnly(t))}
+          placeholder="₦0"
+          keyboardType="number-pad"
+          error={submitted ? rentErr || undefined : undefined}
+        />
+
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <Input
+            label="Bedrooms"
+            value={form.bedrooms}
+            onChangeText={(t) => set('bedrooms', digitsOnly(t))}
+            placeholder="0"
+            keyboardType="number-pad"
+            containerStyle={{ flex: 1 }}
+          />
+          <Input
+            label="Bathrooms"
+            value={form.bathrooms}
+            onChangeText={(t) => set('bathrooms', digitsOnly(t))}
+            placeholder="0"
+            keyboardType="number-pad"
+            containerStyle={{ flex: 1 }}
+          />
+        </View>
+
+        <Input
           label="Description"
           value={form.desc}
           onChangeText={(t) => set('desc', t)}
@@ -219,7 +364,21 @@ export default function AddProperty(): React.ReactElement {
           <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13 }}>
             Photos
           </Text>
-          <PhotoUpload />
+          <PhotoUpload
+            photos={photos}
+            onAdd={() => {
+              void addPhotos();
+            }}
+            onRemove={removePhoto}
+            disabled={submitting}
+          />
+          {photos.length > 0 ? (
+            <Text variant="caption" color={colors.muted}>
+              {uploadingPhotos
+                ? 'Uploading photos…'
+                : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'} will upload once the property is saved.`}
+            </Text>
+          ) : null}
         </View>
 
         <Card flat padding={14}>
@@ -248,26 +407,16 @@ export default function AddProperty(): React.ReactElement {
             onChange={(v) => set('freq', v)}
           />
         </View>
-
-        <View style={{ gap: 7 }}>
-          <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13 }}>
-            Occupancy status
-          </Text>
-          <SegmentedControl
-            options={OCCUPANCY_OPTIONS}
-            value={form.occupancy}
-            onChange={(v) => set('occupancy', v)}
-          />
-        </View>
       </View>
 
       <View style={{ marginTop: spacing['2xl'] }}>
         <Button
-          title="Save property"
+          title={uploadingPhotos ? 'Uploading photos…' : 'Save property'}
           icon="check"
           variant="primary"
           fullWidth
           loading={submitting}
+          disabled={submitting}
           onPress={() => {
             void handleSave();
           }}

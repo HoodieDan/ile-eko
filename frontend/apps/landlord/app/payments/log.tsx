@@ -28,6 +28,7 @@ import {
   usePaymentsSummary,
   useTenants,
   useLogPayment,
+  useUpload,
   initialsOf,
   naira,
   nairaShort,
@@ -35,6 +36,7 @@ import {
   type PropertyDTO,
   type PaymentReceiptDTO,
 } from '@ile-eko/core';
+import { pickImages } from '../../src/media/pickImages';
 
 type PaymentMethod = NonNullable<PaymentReceiptDTO['method']>;
 type Filter = 'all' | 'overdue' | 'due' | 'paid' | 'vacant';
@@ -179,12 +181,15 @@ export default function LogPayment(): React.ReactElement {
               <Icon name="spark" size={20} color={colors.onAi} fill />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <AILabel>Default prediction</AILabel>
+              {/* A risk BAND, not a probability: the score is a 0–1 heuristic, not a
+                  calibrated default likelihood, so we never render it as "% likely". */}
+              <AILabel>Payment risk</AILabel>
               <Text variant="bodyStrong" style={{ marginTop: 5 }}>
-                {riskTenant.fullName} is {riskTenant.risk?.score ?? 0}% likely to default
+                {riskTenant.fullName} — high payment risk
               </Text>
               <Text variant="caption" color={colors.muted} style={{ marginTop: 3 }}>
-                {riskProp ? `${riskProp.propertyTitle}, ${riskProp.area}` : 'Review this tenant'}
+                {riskTenant.risk?.reason ??
+                  (riskProp ? `${riskProp.propertyTitle}, ${riskProp.area}` : 'Review this tenant')}
               </Text>
             </View>
             <Icon name="fwd" size={18} color={colors.aiDeep} style={{ marginTop: 4 }} />
@@ -337,11 +342,6 @@ const METHODS: MethodOption[] = [
   { id: 'other', label: 'Mobile / other' },
 ];
 
-const MARK_OPTIONS: { v: string; l: string }[] = [
-  { v: 'confirmed', l: 'Confirmed' },
-  { v: 'partial', l: 'Partial' },
-];
-
 interface LogPaymentSheetProps {
   tenant: TenantDTO | null;
   property: PropertyDTO | undefined;
@@ -351,6 +351,7 @@ interface LogPaymentSheetProps {
 function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): React.ReactElement {
   const { showToast } = useToast();
   const logPayment = useLogPayment();
+  const upload = useUpload();
 
   const name = tenant?.fullName ?? 'No tenant';
   const where = property ? `${property.propertyTitle}, ${property.area}` : undefined;
@@ -370,7 +371,7 @@ function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): R
   const [method, setMethod] = useState<PaymentMethod>('transfer');
   const [period, setPeriod] = useState('Current cycle');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [status, setStatus] = useState('confirmed');
+  const [receiptKey, setReceiptKey] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
 
   // Re-seed the amount whenever a new tenant opens the sheet.
@@ -382,7 +383,7 @@ function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): R
       setMethod('transfer');
       setPeriod('Current cycle');
       setDate(new Date().toISOString().slice(0, 10));
-      setStatus('confirmed');
+      setReceiptKey(null);
       setTouched(false);
     }
     if (!tenant) seedRef.current = null;
@@ -390,6 +391,36 @@ function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): R
 
   const num = Number(amount.replace(/[^\d]/g, ''));
   const err = !num ? 'Enter an amount' : num < 1000 ? 'Amount looks too small' : '';
+
+  /**
+   * The tenant already exists, so the receipt can be uploaded straight away —
+   * `/uploads/sign` checks the tenant belongs to this landlord (§9).
+   */
+  async function attachReceipt(): Promise<void> {
+    if (!tenant) return;
+    const picked = await pickImages();
+    if (picked.status === 'denied') {
+      showToast('Photo library access is off', 'alert');
+      return;
+    }
+    if (picked.status === 'cancelled') return;
+    const image = picked.images[0];
+    if (!image) return;
+    try {
+      const { objectKey } = await upload.mutateAsync({
+        kind: 'receipt',
+        resourceId: tenant.id,
+        uri: image.uri,
+        ...(image.mimeType ? { mimeType: image.mimeType } : {}),
+        ...(image.sizeBytes !== undefined ? { sizeBytes: image.sizeBytes } : {}),
+        ...(image.fileName ? { fileName: image.fileName } : {}),
+      });
+      setReceiptKey(objectKey);
+      showToast('Receipt attached');
+    } catch {
+      showToast("Couldn't upload the receipt", 'alert');
+    }
+  }
 
   function confirm(): void {
     setTouched(true);
@@ -405,6 +436,7 @@ function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): R
         paidAt: date,
         method,
         periodCovered: period,
+        ...(receiptKey ? { receiptKey } : {}),
       },
       {
         onSuccess: () => {
@@ -513,74 +545,60 @@ function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): R
         <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13, marginBottom: 7 }}>
           Receipt
         </Text>
-        <Pressable
-          style={{
-            minHeight: 56,
-            borderRadius: radii.input,
-            borderWidth: 1.6,
-            borderStyle: 'dashed',
-            borderColor: colors.line,
-            backgroundColor: colors.surface2,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 9,
-          }}
-        >
-          <Icon name="image" size={19} color={colors.muted} />
-          <Text variant="captionStrong" color={colors.muted}>
-            Attach receipt photo
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Mark as */}
-      <View style={{ marginTop: spacing.lg }}>
-        <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13, marginBottom: 7 }}>
-          Mark as
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: colors.surface2,
-            borderRadius: radii.md,
-            padding: 4,
-            gap: 4,
-          }}
-        >
-          {MARK_OPTIONS.map((o) => {
-            const on = status === o.v;
-            return (
-              <Pressable
-                key={o.v}
-                onPress={() => setStatus(o.v)}
-                style={[
-                  {
-                    flex: 1,
-                    minHeight: 42,
-                    borderRadius: 9,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: on ? colors.surface : 'transparent',
-                  },
-                  on
-                    ? {
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.12,
-                        shadowRadius: 2,
-                        elevation: 1,
-                      }
-                    : null,
-                ]}
-              >
-                <Text variant="captionStrong" color={on ? colors.ink : colors.muted}>
-                  {o.l}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {receiptKey ? (
+          <View
+            style={{
+              minHeight: 56,
+              paddingHorizontal: 14,
+              borderRadius: radii.input,
+              borderWidth: 1.6,
+              borderColor: colors.ok,
+              backgroundColor: colors.surface2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 9,
+            }}
+          >
+            <Icon name="checkCircle" size={19} color={colors.ok} strokeWidth={2.2} />
+            <Text variant="captionStrong" color={colors.ok} style={{ flex: 1 }}>
+              Receipt attached
+            </Text>
+            <Pressable onPress={() => setReceiptKey(null)} hitSlop={10}>
+              <Text variant="captionStrong" color={colors.muted}>
+                Remove
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => {
+              void attachReceipt();
+            }}
+            disabled={upload.isPending || !tenant}
+            style={{
+              minHeight: 56,
+              borderRadius: radii.input,
+              borderWidth: 1.6,
+              borderStyle: 'dashed',
+              borderColor: colors.line,
+              backgroundColor: colors.surface2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 9,
+              opacity: upload.isPending ? 0.6 : 1,
+            }}
+          >
+            {upload.isPending ? (
+              <ActivityIndicator color={colors.muted} />
+            ) : (
+              <Icon name="image" size={19} color={colors.muted} />
+            )}
+            <Text variant="captionStrong" color={colors.muted}>
+              {upload.isPending ? 'Uploading receipt…' : 'Attach receipt photo'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <Button

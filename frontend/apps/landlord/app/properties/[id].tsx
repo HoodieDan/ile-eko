@@ -21,6 +21,7 @@ import {
   Icon,
   IconButton,
   type IconName,
+  Screen,
   SegmentedControl,
   StatusChip,
   type StatusKind,
@@ -35,10 +36,12 @@ import {
 } from '@ile-eko/ui';
 import {
   api,
+  ApiError,
   useProperty,
   useTenants,
   useActivity,
   useLogPayment,
+  useToggleListing,
   naira,
   nairaShort,
   initialsOf,
@@ -61,6 +64,15 @@ interface UnitDTO {
   bathrooms: number;
   rentAmount: number;
   status: 'vacant' | 'occupied' | 'partial' | 'pending';
+}
+
+/** Marketplace listing rows attached to the property-detail response. */
+interface PropertyListing {
+  id: string;
+  unitId?: string;
+  listed: boolean;
+  available: boolean;
+  views: number;
 }
 
 interface RentSuggestion {
@@ -192,13 +204,52 @@ function RiskCard({ risk }: { risk: NonNullable<TenantDTO['risk']> }): React.Rea
 }
 
 function MarketplaceCard({
-  listed: initialListed,
+  listing,
   onOpenEnquiries,
 }: {
-  listed: boolean;
+  listing: PropertyListing | undefined;
   onOpenEnquiries: () => void;
 }): React.ReactElement {
-  const [listed, setListed] = React.useState(initialListed);
+  const { showToast } = useToast();
+  const toggleListing = useToggleListing();
+  const serverListed = listing?.listed ?? false;
+
+  // Optimistic value while the mutation is in flight; the server value wins
+  // as soon as the invalidated property query comes back.
+  const [pendingListed, setPendingListed] = React.useState<boolean | null>(null);
+  React.useEffect(() => {
+    setPendingListed(null);
+  }, [serverListed]);
+
+  const listed = pendingListed ?? serverListed;
+
+  const onToggle = (next: boolean): void => {
+    if (!listing) {
+      showToast("Couldn't update listing", 'alert');
+      return;
+    }
+    if (next && !listing.available) {
+      showToast("Occupied properties can't be listed", 'alert');
+      return;
+    }
+    setPendingListed(next);
+    toggleListing.mutate(
+      { id: listing.id, listed: next },
+      {
+        onSuccess: () => {
+          showToast(next ? 'Listed on marketplace' : 'Removed from marketplace');
+        },
+        onError: (err: unknown) => {
+          setPendingListed(null);
+          if (err instanceof ApiError && err.status === 409) {
+            showToast("Occupied properties can't be listed", 'alert');
+          } else {
+            showToast("Couldn't update listing", 'alert');
+          }
+        },
+      },
+    );
+  };
 
   return (
     <Card padding={16}>
@@ -225,7 +276,7 @@ function MarketplaceCard({
             </Text>
           </View>
         </View>
-        <Switch value={listed} onValueChange={setListed} />
+        <Switch value={listed} onValueChange={onToggle} disabled={toggleListing.isPending} />
       </View>
 
       {listed ? (
@@ -249,7 +300,7 @@ export default function PropertyDetail(): React.ReactElement | null {
   const { showToast } = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const { data: p, isLoading } = useProperty(id);
+  const { data: p, isLoading, isError, refetch } = useProperty(id);
   const { data: tenantsHere = [] } = useTenants(id);
   const { data: activity = [] } = useActivity(id ? { propertyId: id } : undefined);
 
@@ -289,11 +340,27 @@ export default function PropertyDetail(): React.ReactElement | null {
     );
   }
 
-  if (!p) return null;
+  // Error or not-found: never a blank screen — always a way back plus a retry.
+  if (isError || !p) {
+    return (
+      <Screen>
+        <StatusBar style="dark" />
+        <AppBar title="Property" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
+          <EmptyState
+            icon="alert"
+            title="Couldn't load this property"
+            message="Check your connection and try again."
+          />
+          <Button title="Try again" variant="secondary" onPress={() => void refetch()} />
+        </View>
+      </Screen>
+    );
+  }
 
   const occupancy = occupancyChip(p.status);
   const tenant = tenantsHere[0];
-  const listed = (p.listings?.length ?? 0) > 0;
+  const listing = ((p.listings ?? []) as PropertyListing[])[0];
 
   const tenantById = new Map(tenantsHere.map((t) => [t.id, t]));
   const tenantIds = new Set(tenantsHere.map((t) => t.id));
@@ -391,7 +458,7 @@ export default function PropertyDetail(): React.ReactElement | null {
               payments={payments}
               activity={activity}
               suggestion={suggestion}
-              listed={listed}
+              listing={listing}
               section={section}
               sections={sections}
               onSection={setSection}
@@ -510,7 +577,7 @@ interface BodyProps {
   payments: PaymentReceiptDTO[];
   activity: ActivityLogDTO[];
   suggestion: RentSuggestion | undefined;
-  listed: boolean;
+  listing: PropertyListing | undefined;
   section: SectionId;
   sections: { value: SectionId; label: string }[];
   onSection: (s: SectionId) => void;
@@ -531,7 +598,7 @@ function Body({
   payments,
   activity,
   suggestion,
-  listed,
+  listing,
   section,
   sections,
   onSection,
@@ -616,7 +683,7 @@ function Body({
       {/* Marketplace listing status (vacant / has vacancy) */}
       {(p.status === 'vacant' || p.status === 'partial') && (
         <View style={{ marginTop: spacing.md }}>
-          <MarketplaceCard listed={listed} onOpenEnquiries={onEnquiries} />
+          <MarketplaceCard listing={listing} onOpenEnquiries={onEnquiries} />
         </View>
       )}
 

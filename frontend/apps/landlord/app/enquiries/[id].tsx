@@ -5,7 +5,9 @@ import {
   AppBar,
   Text,
   Eyebrow,
+  Button,
   Card,
+  EmptyState,
   Input,
   Avatar,
   Icon,
@@ -34,7 +36,7 @@ export default function EnquiryDetail(): React.ReactElement | null {
   const { showToast } = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const { data: e, isLoading } = useEnquiryThread(id);
+  const { data: e, isLoading, isError, refetch } = useEnquiryThread(id);
   const replyEnquiry = useReplyEnquiry();
   const markRead = useMarkEnquiryRead();
 
@@ -60,7 +62,22 @@ export default function EnquiryDetail(): React.ReactElement | null {
     );
   }
 
-  if (!e) return null;
+  // Error or not-found: never a blank screen — always a way back plus a retry.
+  if (isError || !e) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <AppBar title="Enquiry" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
+          <EmptyState
+            icon="alert"
+            title="Couldn't load this enquiry"
+            message="Check your connection and try again."
+          />
+          <Button title="Try again" variant="secondary" onPress={() => void refetch()} />
+        </View>
+      </View>
+    );
+  }
 
   const send = (text?: string): void => {
     const body = (text ?? reply).trim();

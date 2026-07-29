@@ -6,6 +6,7 @@ import {
   AppBar,
   Button,
   Card,
+  EmptyState,
   Input,
   PropertyThumb,
   Text,
@@ -31,7 +32,7 @@ export default function Enquire(): React.ReactElement | null {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { status } = useAuth();
-  const { data: listing, isLoading } = useListing(id);
+  const { data: listing, isLoading, isError, refetch } = useListing(id);
 
   if (status === 'loading' || isLoading) {
     return (
@@ -45,7 +46,23 @@ export default function Enquire(): React.ReactElement | null {
   }
 
   if (status !== 'authenticated') return <Redirect href="/(auth)/login" />;
-  if (!listing) return null;
+
+  // Error or not-found: never a blank screen — always a way back plus a retry.
+  if (isError || !listing) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+        <AppBar title="Contact landlord" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
+          <EmptyState
+            icon="alert"
+            title="Couldn't load this home"
+            message="Check your connection and try again."
+          />
+          <Button title="Try again" variant="secondary" onPress={() => void refetch()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return <EnquireForm listing={listing} listingId={id} />;
 }
