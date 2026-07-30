@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 
 /** Matches the API DashboardSummary (§6.9) — field names mirror the screen's `summary`. */
@@ -43,11 +43,15 @@ export interface DashboardData {
   activity: DashboardActivityItem[];
 }
 
-export function useDashboard() {
-  return useQuery<DashboardData>({
+/** Shared so the boot preloader warms the exact same cache entry the screen reads. */
+export const dashboardQuery = () =>
+  queryOptions({
     queryKey: ['dashboard'],
     queryFn: () => api.get<DashboardData>('/dashboard/summary'),
   });
+
+export function useDashboard() {
+  return useQuery(dashboardQuery());
 }
 
 export interface Briefing {
@@ -57,10 +61,13 @@ export interface Briefing {
   degraded?: boolean;
 }
 
-export function useBriefing() {
-  return useQuery<Briefing>({
+export const briefingQuery = () =>
+  queryOptions({
     queryKey: ['ai', 'briefing'],
     queryFn: () => api.get<Briefing>('/ai/briefing'),
     staleTime: 5 * 60_000,
   });
+
+export function useBriefing() {
+  return useQuery(briefingQuery());
 }

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { PaymentFrequency, PropertyType } from '../types';
 
@@ -32,14 +32,17 @@ interface ListEnvelope<T> {
   total?: number;
 }
 
-export function useProperties(filters?: { status?: string; area?: string; q?: string }) {
-  return useQuery<PropertyDTO[]>({
+export const propertiesQuery = (filters?: { status?: string; area?: string; q?: string }) =>
+  queryOptions({
     queryKey: ['properties', filters ?? {}],
     queryFn: async () => {
       const res = await api.get<ListEnvelope<PropertyDTO>>('/properties', { query: filters });
       return res.items;
     },
   });
+
+export function useProperties(filters?: { status?: string; area?: string; q?: string }) {
+  return useQuery(propertiesQuery(filters));
 }
 
 export interface PropertyStats {

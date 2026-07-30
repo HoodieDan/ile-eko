@@ -1,16 +1,26 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { prefetchTenantBoot, useAuth } from '@ile-eko/core';
 import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
+
+/** Hard ceiling on the preload — a dead network must never trap the user here. */
+const PRELOAD_TIMEOUT_MS = 8000;
 
 /**
  * Branded splash. Browse-first: after a short beat we drop straight into the
- * Explore marketplace (no auth gate). Tap to skip.
+ * Explore marketplace (no auth gate). We hold until the listings are cached so
+ * Explore opens populated rather than empty. Tap to skip.
  */
 export default function Splash(): React.ReactElement {
   const router = useRouter();
+  const { status } = useAuth();
+  const queryClient = useQueryClient();
+  const [elapsed, setElapsed] = useState(false);
+  const [preloaded, setPreloaded] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(12)).current;
 
@@ -21,9 +31,29 @@ export default function Splash(): React.ReactElement {
       Animated.timing(fade, { toValue: 1, duration: 480, useNativeDriver: true }),
       Animated.timing(rise, { toValue: 0, duration: 520, useNativeDriver: true }),
     ]).start();
-    const t = setTimeout(() => router.replace('/(tabs)/explore'), 1700);
+    const t = setTimeout(() => setElapsed(true), 1700);
     return () => clearTimeout(t);
-  }, [fade, rise, router]);
+  }, [fade, rise]);
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      setPreloaded(true);
+    };
+    const timer = setTimeout(finish, PRELOAD_TIMEOUT_MS);
+    void prefetchTenantBoot(queryClient, status === 'authenticated').finally(() => {
+      clearTimeout(timer);
+      finish();
+    });
+    return () => clearTimeout(timer);
+  }, [status, queryClient]);
+
+  useEffect(() => {
+    if (elapsed && preloaded) router.replace('/(tabs)/explore');
+  }, [elapsed, preloaded, router]);
 
   return (
     <Pressable style={{ flex: 1 }} onPress={go}>

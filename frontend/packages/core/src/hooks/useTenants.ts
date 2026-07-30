@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { PaymentFrequency } from '../types';
 
@@ -49,8 +49,8 @@ interface ListEnvelope<T> {
   total?: number;
 }
 
-export function useTenants(propertyId?: string) {
-  return useQuery<TenantDTO[]>({
+export const tenantsQuery = (propertyId?: string) =>
+  queryOptions({
     queryKey: ['tenants', propertyId ?? 'all'],
     queryFn: async () => {
       const res = await api.get<ListEnvelope<TenantDTO>>('/tenants', {
@@ -59,6 +59,9 @@ export function useTenants(propertyId?: string) {
       return res.items;
     },
   });
+
+export function useTenants(propertyId?: string) {
+  return useQuery(tenantsQuery(propertyId));
 }
 
 export function useTenant(id: string | undefined) {

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { AIConversation } from '../types';
 
@@ -55,12 +55,15 @@ export interface AIBrief {
   deepLink?: string;
 }
 
-export function useBriefs() {
-  return useQuery<AIBrief[]>({
+export const briefsQuery = () =>
+  queryOptions({
     queryKey: ['ai', 'briefs'],
     queryFn: async () => {
       const res = await api.get<ListEnvelope<AIBrief>>('/ai/briefs');
       return res.items;
     },
   });
+
+export function useBriefs() {
+  return useQuery(briefsQuery());
 }

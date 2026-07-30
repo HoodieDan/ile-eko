@@ -4,7 +4,7 @@ import { AppError } from '../../utils/AppError';
 import { AIConversation, Listing, Property, RentObligation, type ConversationDoc } from '../../models';
 import { getEngine, AIUnavailableError } from '../../ai/engine';
 import { withRetry } from '../../ai/retry';
-import { summaryNumbers, upcomingRent } from '../../services/stats';
+import { areaBreakdown, summaryNumbers, tenantLedgerRows, upcomingRent } from '../../services/stats';
 import { BriefingObject, RentSuggestionObject } from '../../contracts';
 import type { AIConversationDTO, BriefDTO, BriefingDTO, ChatResponse, RentSuggestionDTO } from '../../contracts';
 
@@ -26,16 +26,61 @@ function presentConversation(c: ConversationDoc): AIConversationDTO {
   };
 }
 
-/** Portfolio grounding, scoped to THIS landlord only (cross-tenant isolation, §7.1). */
+/**
+ * Portfolio grounding, scoped to THIS landlord only (cross-tenant isolation, §7.1).
+ *
+ * Totals alone force the model to refuse most useful questions, so this also
+ * ships the per-tenant payment record (with the deterministic risk band from
+ * the ledger) and an area breakdown. Everything here is computed — the model
+ * narrates it, it never invents it.
+ */
 async function portfolioContext(landlordId: string): Promise<string> {
-  const s = await summaryNumbers(landlordId);
-  const upcoming = await upcomingRent(landlordId, 5);
+  const [s, upcoming, roster, areas] = await Promise.all([
+    summaryNumbers(landlordId),
+    upcomingRent(landlordId, 5),
+    tenantLedgerRows(landlordId),
+    areaBreakdown(landlordId),
+  ]);
+
   const lines = [
+    'PORTFOLIO TOTALS',
     `Occupancy: ${s.occupied}/${s.total} targets (${s.occupancyPct}%).`,
-    `Annual rent roll: ${naira(s.rollAnnual)}. Collected: ${naira(s.collected)}.`,
-    `Overdue: ${naira(s.overdueAmt)}. Due soon: ${naira(s.dueAmt)}. Vacant value: ${naira(s.vacantAmt)}.`,
-    ...upcoming.map((u) => `- ${u.tenantName} @ ${u.propertyTitle}: ${naira(u.amount)} ${u.status} (due ${u.dueDate}).`),
+    `Annual rent roll: ${naira(s.rollAnnual)}. Collected to date: ${naira(s.collected)}.`,
+    `Overdue: ${naira(s.overdueAmt)}. Due within 30 days: ${naira(s.dueAmt)}. Rent lost to vacancy: ${naira(s.vacantAmt)}.`,
   ];
+
+  if (areas.length > 0) {
+    lines.push('', 'BY AREA');
+    for (const a of areas) {
+      lines.push(
+        `- ${a.area}: ${a.occupied}/${a.targets} occupied, ${naira(a.rollAnnual)} annual roll.`,
+      );
+    }
+  }
+
+  if (roster.length > 0) {
+    lines.push('', 'TENANT PAYMENT RECORD (worst first)');
+    for (const t of roster) {
+      const parts = [
+        `- ${t.tenantName} @ ${t.propertyTitle}${t.area ? `, ${t.area}` : ''}: ${t.status}`,
+        `paid ${t.paidCount}/${t.totalObligations} instalments`,
+      ];
+      if (t.outstanding > 0) parts.push(`${naira(t.outstanding)} outstanding`);
+      if (t.overdueCount > 0) {
+        parts.push(`${t.overdueCount} instalment(s) overdue, oldest by ${t.maxDaysOverdue} days`);
+      }
+      if (t.riskBand) parts.push(`risk ${t.riskBand}${t.riskReason ? ` (${t.riskReason})` : ''}`);
+      lines.push(parts.join('; ') + '.');
+    }
+  }
+
+  if (upcoming.length > 0) {
+    lines.push('', 'NEXT PAYMENTS DUE');
+    for (const u of upcoming) {
+      lines.push(`- ${u.tenantName} @ ${u.propertyTitle}: ${naira(u.amount)} ${u.status} (due ${u.dueDate}).`);
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -60,8 +105,15 @@ export async function chat(userId: string, message: string, conversationId?: str
       .join('\n');
     reply = await withRetry(() =>
       getEngine().generateText({
-        system:
-          'You are the Ilé Èkó AI property manager for a single Lagos landlord. Answer only from the provided portfolio data. Be concise, use Naira. If data is missing, say so.',
+        system: [
+          'You are the Ilé Èkó AI property manager for a single Lagos landlord.',
+          'Answer only from the PORTFOLIO block. Never invent tenants, properties or figures.',
+          'All money is Nigerian Naira — always write amounts with the ₦ symbol, never $.',
+          'Be concise: two or three short sentences, or a short bullet list.',
+          'The risk band for each tenant is already decided from their ledger — report it, do not re-score it.',
+          'You know WHAT a tenant has paid and how late, not WHY. Describe the payment pattern; never speculate about their circumstances.',
+          'If the data needed to answer is not in the PORTFOLIO block, say so plainly and name what you would need.',
+        ].join(' '),
         prompt: `PORTFOLIO:\n${context}\n\nCONVERSATION:\n${history}\n\nAnswer the latest user message.`,
       }),
     );

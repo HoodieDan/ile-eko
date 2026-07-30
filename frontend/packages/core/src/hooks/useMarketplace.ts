@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 
 interface ListEnvelope<T> {
@@ -39,14 +39,17 @@ export type ListingDetail = ListingSummary & {
   images: string[];
 };
 
-export function useListings(filters?: ListingFilters) {
-  return useQuery<ListingSummary[]>({
+export const listingsQuery = (filters?: ListingFilters) =>
+  queryOptions({
     queryKey: ['listings', filters ?? {}],
     queryFn: async () => {
       const res = await api.get<ListEnvelope<ListingSummary>>('/listings', { query: filters });
       return res.items;
     },
   });
+
+export function useListings(filters?: ListingFilters) {
+  return useQuery(listingsQuery(filters));
 }
 
 export function useListing(id?: string) {
@@ -92,24 +95,30 @@ export function useSearch() {
   });
 }
 
-export function useRecommendations() {
-  return useQuery<ListingSummary[]>({
+export const recommendationsQuery = () =>
+  queryOptions({
     queryKey: ['recommendations'],
     queryFn: async () => {
       const res = await api.get<ListEnvelope<ListingSummary>>('/recommendations');
       return res.items;
     },
   });
+
+export function useRecommendations() {
+  return useQuery(recommendationsQuery());
 }
 
-export function useSavedListings() {
-  return useQuery<ListingSummary[]>({
+export const savedListingsQuery = () =>
+  queryOptions({
     queryKey: ['saved-listings'],
     queryFn: async () => {
       const res = await api.get<ListEnvelope<ListingSummary>>('/saved-listings');
       return res.items;
     },
   });
+
+export function useSavedListings() {
+  return useQuery(savedListingsQuery());
 }
 
 export function useSaveListing() {

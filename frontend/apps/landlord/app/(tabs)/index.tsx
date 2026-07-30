@@ -17,6 +17,7 @@ import {
   PropertyThumb,
   Avatar,
   Chip,
+  Skeleton,
   colors,
   heroGradient,
   type StatusKind,
@@ -70,7 +71,7 @@ export default function Dashboard(): React.ReactElement {
 
   const { user } = useAuth();
   const { data: dash, isLoading } = useDashboard();
-  const { data: brief } = useBriefing();
+  const { data: brief, isPending: briefPending } = useBriefing();
   const { data: props = [] } = useProperties();
 
   const name = user?.name ?? 'there';
@@ -79,7 +80,9 @@ export default function Dashboard(): React.ReactElement {
   const upcoming = (dash?.upcoming ?? []).slice(0, 3);
   const activity = (dash?.activity ?? []).slice(0, 3);
   const newEnquiries = dash?.enquiriesUnread ?? 0;
-  const briefing = brief ?? { headline: 'Your daily briefing will appear here.', points: [] };
+  // Only claim there's nothing to brief once the request has actually settled —
+  // showing the empty copy mid-fetch reads as "you have no portfolio".
+  const briefing = brief ?? { headline: 'Nothing needs your attention today.', points: [] };
 
   const segPct = (amt: number): number =>
     summary.rollAnnual > 0 ? (amt / summary.rollAnnual) * 100 : 0;
@@ -202,16 +205,31 @@ export default function Dashboard(): React.ReactElement {
           <AICard onPress={() => router.push('/ai')} padding={18} style={{ marginTop: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <AILabel>Today&apos;s AI briefing</AILabel>
-              {briefing.points.length > 0 ? <Chip label={`${briefing.points.length} insights`} tone="ai" solid /> : null}
+              {!briefPending && briefing.points.length > 0 ? (
+                <Chip label={`${briefing.points.length} insights`} tone="ai" solid />
+              ) : null}
             </View>
-            <Text variant="title" style={{ fontSize: 17, lineHeight: 21, marginTop: 11 }}>
-              {briefing.headline}
-            </Text>
-            {briefing.points[0] ? (
-              <Text variant="caption" color={colors.muted} style={{ marginTop: 7, lineHeight: 20 }}>
-                {briefing.points[0]}
-              </Text>
-            ) : null}
+            {briefPending ? (
+              <View style={{ gap: 8, marginTop: 13 }}>
+                <Skeleton height={17} width="82%" />
+                <Skeleton height={13} width="64%" />
+              </View>
+            ) : (
+              <>
+                <Text variant="title" style={{ fontSize: 17, lineHeight: 21, marginTop: 11 }}>
+                  {briefing.headline}
+                </Text>
+                {briefing.points[0] ? (
+                  <Text
+                    variant="caption"
+                    color={colors.muted}
+                    style={{ marginTop: 7, lineHeight: 20 }}
+                  >
+                    {briefing.points[0]}
+                  </Text>
+                ) : null}
+              </>
+            )}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 13 }}>
               <Text variant="captionStrong" color={colors.aiDeep}>
                 Open assistant

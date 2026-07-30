@@ -3,17 +3,24 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, View } from 'react-native';
-import { useAuth } from '@ile-eko/core';
+import { useQueryClient } from '@tanstack/react-query';
+import { prefetchLandlordBoot, useAuth } from '@ile-eko/core';
 import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
 
+/** Hard ceiling on the preload — a dead network must never trap the user here. */
+const PRELOAD_TIMEOUT_MS = 8000;
+
 /**
- * Branded splash → routes on once both the minimum display time has elapsed and
- * auth status is known: dashboard if signed in, otherwise the onboarding flow.
+ * Branded splash → routes on once the minimum display time has elapsed, auth
+ * status is known, and (when signed in) the dashboard's data is in the cache.
+ * Handing over early means the user watches the home screen assemble itself.
  */
 export default function Splash(): React.ReactElement {
   const router = useRouter();
   const { status } = useAuth();
+  const queryClient = useQueryClient();
   const [elapsed, setElapsed] = useState(false);
+  const [preloaded, setPreloaded] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(12)).current;
 
@@ -27,11 +34,36 @@ export default function Splash(): React.ReactElement {
   }, [fade, rise]);
 
   useEffect(() => {
-    if (elapsed && status !== 'loading') {
+    if (status === 'loading') return;
+    // Signed out there is nothing to warm — onboarding needs no portfolio.
+    if (status !== 'authenticated') {
+      setPreloaded(true);
+      return;
+    }
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      setPreloaded(true);
+    };
+    const timer = setTimeout(finish, PRELOAD_TIMEOUT_MS);
+    void prefetchLandlordBoot(queryClient).finally(() => {
+      clearTimeout(timer);
+      finish();
+    });
+    return () => clearTimeout(timer);
+  }, [status, queryClient]);
+
+  const ready = status !== 'loading' && preloaded;
+
+  useEffect(() => {
+    if (elapsed && ready) {
       router.replace(status === 'authenticated' ? '/(tabs)' : '/(auth)/onboarding');
     }
-  }, [elapsed, status, router]);
+  }, [elapsed, ready, status, router]);
 
+  // Tapping through skips the remaining wait; the destination screens still
+  // have their own loading states for anything that hasn't landed.
   const skip = (): void => {
     if (status !== 'loading') {
       router.replace(status === 'authenticated' ? '/(tabs)' : '/(auth)/onboarding');

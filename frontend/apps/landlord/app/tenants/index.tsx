@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Screen,
   AppBar,
@@ -34,6 +34,9 @@ const FILTERS: { id: FilterId; label: string }[] = [
 
 const ACTION_STATES: TenantDTO['status'][] = ['overdue', 'partial', 'due'];
 
+const isFilterId = (v: unknown): v is FilterId =>
+  v === 'all' || v === 'current' || v === 'action';
+
 const RISK_LABEL: Record<NonNullable<TenantDTO['risk']>['band'], string> = {
   low: 'Low',
   medium: 'Watch',
@@ -58,7 +61,10 @@ function monthYear(iso?: string): string {
 export default function TenantsScreen(): React.ReactElement {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<FilterId>('all');
+  // AI briefs and notifications link here pre-filtered (e.g. "Overdue rent"
+  // lands on the people who need chasing rather than the whole roll).
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const [filter, setFilter] = useState<FilterId>(isFilterId(filterParam) ? filterParam : 'all');
 
   const { data: tenants = [], isLoading } = useTenants();
   const { data: properties = [] } = useProperties();

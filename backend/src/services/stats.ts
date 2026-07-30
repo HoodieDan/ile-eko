@@ -114,6 +114,150 @@ export async function upcomingRent(landlordId: string, limit = 5): Promise<Upcom
   return items.slice(0, limit);
 }
 
+export interface TenantLedgerRow {
+  tenantName: string;
+  propertyTitle: string;
+  area: string;
+  status: 'overdue' | 'partial' | 'due' | 'up-to-date';
+  outstanding: number;
+  overdueCount: number;
+  maxDaysOverdue: number;
+  paidCount: number;
+  totalObligations: number;
+  riskBand?: string;
+  riskReason?: string;
+}
+
+/**
+ * Per-tenant payment record, sorted worst-first. This is what lets the
+ * assistant answer "why is X behind?" or "should I worry about X?" — without
+ * it the model only sees portfolio totals and has to refuse.
+ */
+export async function tenantLedgerRows(landlordId: string, limit = 25): Promise<TenantLedgerRow[]> {
+  const now = new Date();
+  const rows = await RentObligation.aggregate([
+    { $match: { landlordId: oid(landlordId) } },
+    {
+      $group: {
+        _id: '$tenantId',
+        propertyId: { $first: '$propertyId' },
+        totalObligations: { $sum: 1 },
+        paidCount: { $sum: { $cond: [{ $eq: ['$settlement', 'paid'] }, 1, 0] } },
+        partialCount: { $sum: { $cond: [{ $eq: ['$settlement', 'partial'] }, 1, 0] } },
+        outstanding: {
+          $sum: {
+            $cond: [
+              { $ne: ['$settlement', 'paid'] },
+              { $subtract: ['$amountDue', '$amountAllocated'] },
+              0,
+            ],
+          },
+        },
+        overdueCount: {
+          $sum: {
+            $cond: [
+              { $and: [{ $ne: ['$settlement', 'paid'] }, { $lt: ['$dueDate', now] }] },
+              1,
+              0,
+            ],
+          },
+        },
+        earliestUnpaid: {
+          $min: { $cond: [{ $ne: ['$settlement', 'paid'] }, '$dueDate', null] },
+        },
+      },
+    },
+    { $lookup: { from: 'tenants', localField: '_id', foreignField: '_id', as: 'tenant' } },
+    { $lookup: { from: 'properties', localField: 'propertyId', foreignField: '_id', as: 'property' } },
+    { $unwind: { path: '$tenant', preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: '$property', preserveNullAndEmptyArrays: true } },
+  ]);
+
+  const out: TenantLedgerRow[] = rows.map((r) => {
+    const earliest = r.earliestUnpaid ? new Date(r.earliestUnpaid) : null;
+    const maxDaysOverdue =
+      earliest && earliest < now ? Math.floor((now.getTime() - earliest.getTime()) / DAY) : 0;
+    const status: TenantLedgerRow['status'] =
+      r.overdueCount > 0
+        ? 'overdue'
+        : r.partialCount > 0
+          ? 'partial'
+          : r.outstanding > 0
+            ? 'due'
+            : 'up-to-date';
+    return {
+      tenantName: r.tenant?.tenantName ?? 'Tenant',
+      propertyTitle: r.property?.propertyTitle ?? 'Property',
+      area: r.property?.area ?? '',
+      status,
+      outstanding: r.outstanding,
+      overdueCount: r.overdueCount,
+      maxDaysOverdue,
+      paidCount: r.paidCount,
+      totalObligations: r.totalObligations,
+      ...(r.tenant?.riskCache?.band ? { riskBand: r.tenant.riskCache.band } : {}),
+      ...(r.tenant?.riskCache?.reason ? { riskReason: r.tenant.riskCache.reason } : {}),
+    };
+  });
+
+  const rank = { overdue: 0, partial: 1, due: 2, 'up-to-date': 3 } as const;
+  out.sort((a, b) => rank[a.status] - rank[b.status] || b.outstanding - a.outstanding);
+  return out.slice(0, limit);
+}
+
+export interface AreaRow {
+  area: string;
+  targets: number;
+  occupied: number;
+  rollAnnual: number;
+}
+
+/** Occupancy and rent roll grouped by Lagos area — grounds "how is Lekki doing?". */
+export async function areaBreakdown(landlordId: string): Promise<AreaRow[]> {
+  const lid = oid(landlordId);
+  const properties = await Property.find(
+    { landlordId: lid, archivedAt: { $exists: false } },
+    { area: 1, hasUnits: 1, statusCache: 1, rentAmount: 1 },
+  ).lean();
+  if (properties.length === 0) return [];
+
+  const units = await Unit.aggregate([
+    {
+      $match: {
+        propertyId: { $in: properties.map((p) => p._id) },
+        archivedAt: { $exists: false },
+      },
+    },
+    {
+      $group: {
+        _id: '$propertyId',
+        targets: { $sum: 1 },
+        occupied: { $sum: { $cond: [{ $eq: ['$statusCache', 'occupied'] }, 1, 0] } },
+        rent: { $sum: '$rentAmount' },
+      },
+    },
+  ]);
+  const unitsByProperty = new Map(units.map((u) => [String(u._id), u]));
+
+  const byArea = new Map<string, AreaRow>();
+  for (const p of properties) {
+    const area = p.area || 'Unspecified';
+    const row = byArea.get(area) ?? { area, targets: 0, occupied: 0, rollAnnual: 0 };
+    if (p.hasUnits) {
+      const u = unitsByProperty.get(String(p._id));
+      row.targets += u?.targets ?? 0;
+      row.occupied += u?.occupied ?? 0;
+      row.rollAnnual += u?.rent ?? 0;
+    } else {
+      row.targets += 1;
+      if (p.statusCache === 'occupied') row.occupied += 1;
+      row.rollAnnual += p.rentAmount ?? 0;
+    }
+    byArea.set(area, row);
+  }
+  return [...byArea.values()].sort((a, b) => b.rollAnnual - a.rollAnnual);
+}
+
 export type TenantLeaseFacts = {
   propertyId?: string;
   unitId?: string;

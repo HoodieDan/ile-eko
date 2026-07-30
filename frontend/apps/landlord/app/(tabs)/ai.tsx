@@ -38,6 +38,7 @@ import {
   naira,
   timeAgo,
 } from '@ile-eko/core';
+import { resolveDeepLink } from '@/nav/deepLink';
 
 interface Message {
   role: 'user' | 'ai';
@@ -45,9 +46,14 @@ interface Message {
 }
 
 /**
- * Suggested prompts built from THIS landlord's live portfolio. Generic examples
- * ("How much did my Lekki properties make?") are noise when you own nothing in
- * Lekki — every suggestion here references something the user actually has.
+ * Suggested prompts built from THIS landlord's live portfolio.
+ *
+ * Two rules, both learned the hard way. They must reference something the user
+ * actually owns — "how are my Lekki properties doing?" is noise if you own
+ * nothing in Lekki. And they must be answerable from the grounding the API
+ * sends the model: it knows the ledger (who owes what, how late, which risk
+ * band) but not motives or market rates, so "why is X behind on rent?" only
+ * ever earns a refusal. Every prompt below maps to data in that block.
  */
 function useSuggestedPrompts(): string[] {
   const { data: dash } = useDashboard();
@@ -59,22 +65,27 @@ function useSuggestedPrompts(): string[] {
     const s = dash?.summary;
 
     const overdueTenant = tenants.find((t) => t.status === 'overdue');
-    if (overdueTenant) out.push(`Why is ${overdueTenant.fullName.split(' ')[0]} behind on rent?`);
-    else if (s?.overdueAmt) out.push(`Who owes me the ${naira(s.overdueAmt)} outstanding?`);
+    if (overdueTenant) {
+      out.push(`How far behind is ${overdueTenant.fullName.split(' ')[0]}?`);
+    } else if (s?.overdueAmt) {
+      out.push(`Who owes me the ${naira(s.overdueAmt)} outstanding?`);
+    }
 
-    const vacant = properties.find((p) => p.status === 'vacant');
-    if (vacant) out.push(`How should I price ${vacant.propertyTitle}?`);
+    if (tenants.some((t) => t.status === 'overdue' || t.status === 'partial')) {
+      out.push('Who should I chase for rent this week?');
+    }
 
     const areas = [...new Set(properties.map((p) => p.area).filter(Boolean))];
-    if (areas[0]) out.push(`How are my ${areas[0]} properties performing?`);
+    if (areas.length > 1) out.push('Which area is performing best?');
+    else if (areas[0]) out.push(`How are my ${areas[0]} properties doing?`);
 
-    const risky = tenants.find((t) => t.risk?.band === 'high' || t.risk?.band === 'medium');
-    if (risky) out.push(`Should I be worried about ${risky.fullName.split(' ')[0]}?`);
+    if (s?.vacantAmt) out.push('How much am I losing to empty units?');
+    if (tenants.some((t) => t.risk?.band === 'high' || t.risk?.band === 'medium')) {
+      out.push('Which tenants are a payment risk?');
+    }
+    if (s && s.total > 0) out.push('Summarise my portfolio.');
 
-    if (tenants.length > 1) out.push('Which tenant pays most reliably?');
-    if (s && s.total > 0) out.push('Summarise my portfolio this month.');
-
-    // Fallbacks for a brand-new account with no data yet.
+    // Fallbacks for a brand-new account with nothing to report on yet.
     if (out.length === 0) {
       out.push('What should I set up first?', 'How does rent tracking work here?');
     }
@@ -229,54 +240,63 @@ export default function AITab(): React.ReactElement {
                   paddingBottom: spacing.xs,
                 }}
               >
-                {briefs.map((b, i) => (
-                  <AICard
-                    key={`${b.kind}-${i}`}
-                    onPress={b.deepLink ? () => router.push(b.deepLink as never) : undefined}
-                    style={{ width: 212 }}
-                  >
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
+                {briefs.map((b, i) => {
+                  // The API hands back `ileeko://…` (for OS-level push links);
+                  // in-app that has to become a router path or nothing at all.
+                  const href = resolveDeepLink(b.deepLink);
+                  return (
+                    <AICard
+                      key={`${b.kind}-${i}`}
+                      onPress={href ? () => router.push(href) : undefined}
+                      style={{ width: 212 }}
                     >
-                      <AILabel>{b.kind}</AILabel>
-                      {isWarn(b.kind) ? (
-                        <View
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 999,
-                            backgroundColor: colors.danger,
-                          }}
-                        />
-                      ) : null}
-                    </View>
-                    <Text variant="title" color={colors.ink} style={{ fontSize: 16, marginTop: 10 }}>
-                      {b.title}
-                    </Text>
-                    <Text variant="caption" color={colors.muted} style={{ marginTop: 5 }}>
-                      {b.body}
-                    </Text>
-                    {b.deepLink ? (
                       <View
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
-                          gap: 4,
-                          marginTop: 11,
+                          justifyContent: 'space-between',
                         }}
                       >
-                        <Text variant="captionStrong" color={colors.aiDeep}>
-                          View
-                        </Text>
-                        <Icon name="fwd" size={14} color={colors.aiDeep} />
+                        <AILabel>{b.kind}</AILabel>
+                        {isWarn(b.kind) ? (
+                          <View
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 999,
+                              backgroundColor: colors.danger,
+                            }}
+                          />
+                        ) : null}
                       </View>
-                    ) : null}
-                  </AICard>
-                ))}
+                      <Text
+                        variant="title"
+                        color={colors.ink}
+                        style={{ fontSize: 16, marginTop: 10 }}
+                      >
+                        {b.title}
+                      </Text>
+                      <Text variant="caption" color={colors.muted} style={{ marginTop: 5 }}>
+                        {b.body}
+                      </Text>
+                      {href ? (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            marginTop: 11,
+                          }}
+                        >
+                          <Text variant="captionStrong" color={colors.aiDeep}>
+                            View
+                          </Text>
+                          <Icon name="fwd" size={14} color={colors.aiDeep} />
+                        </View>
+                      ) : null}
+                    </AICard>
+                  );
+                })}
               </ScrollView>
             </>
           ) : null}
