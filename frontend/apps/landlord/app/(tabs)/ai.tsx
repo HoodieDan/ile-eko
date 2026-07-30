@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   AICard,
   AILabel,
+  AppBar,
   Eyebrow,
   Icon,
   Input,
-  Screen,
   Text,
   colors,
   radii,
@@ -34,7 +35,14 @@ function isWarn(kind: string): boolean {
 
 export default function AITab(): React.ReactElement {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+
+  /** The tab bar is hidden here, so provide the way out. */
+  const goBack = (): void => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
 
   const { data: briefs = [] } = useBriefs();
   const chat = useAIChat();
@@ -69,30 +77,41 @@ export default function AITab(): React.ReactElement {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <Screen scroll padded bottomSpace={120}>
-        {/* Header — spark mark + title */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 }}>
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 13,
-              backgroundColor: colors.ai,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon name="spark" size={21} color={colors.onAi} fill />
-          </View>
-          <View>
-            <Text variant="h2" color={colors.ink}>
-              AI Assistant
-            </Text>
-            <AILabel>Always watching your portfolio</AILabel>
-          </View>
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Back button — the tab bar is hidden on this screen */}
+        <AppBar
+          title="AI Assistant"
+          subtitle="Always watching your portfolio"
+          onBack={goBack}
+          right={
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                backgroundColor: colors.ai,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name="spark" size={19} color={colors.onAi} fill />
+            </View>
+          }
+        />
 
+        {/* Scrollable conversation area — takes the space above the composer */}
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: spacing.lg }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        >
         {/* Proactive briefing strip */}
         {briefs.length > 0 ? (
           <>
@@ -175,7 +194,7 @@ export default function AITab(): React.ReactElement {
             portfolio.
           </Text>
         ) : null}
-        <ScrollView ref={scrollRef} scrollEnabled={false}>
+        <View>
           <View style={{ gap: spacing.sm }}>
             {thread.map((m, i) => {
               const isUser = m.role === 'user';
@@ -234,7 +253,7 @@ export default function AITab(): React.ReactElement {
               </View>
             ) : null}
           </View>
-        </ScrollView>
+        </View>
 
         {/* Suggested-prompt pills */}
         <View
@@ -260,44 +279,51 @@ export default function AITab(): React.ReactElement {
             </Pressable>
           ))}
         </View>
-      </Screen>
+        </ScrollView>
 
-      {/* Docked input bar */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 92,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.sm,
-          paddingHorizontal: spacing.lg,
-          paddingTop: spacing.sm,
-          paddingBottom: spacing.md,
-          backgroundColor: colors.bg,
-          borderTopWidth: 1,
-          borderTopColor: colors.line,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          <Input value={input} onChangeText={setInput} placeholder="Ask your assistant…" />
-        </View>
-        <Pressable
-          accessibilityLabel="Send"
-          onPress={() => send(input)}
+        {/* Composer — sits on the true bottom edge and rises with the keyboard */}
+        <View
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 11,
-            backgroundColor: colors.ai,
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: spacing.sm,
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.sm,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : spacing.md,
+            backgroundColor: colors.bg,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
           }}
         >
-          <Icon name="send" size={18} color={colors.onAi} />
-        </Pressable>
-      </View>
-    </View>
+          <View style={{ flex: 1 }}>
+            <Input
+              value={input}
+              onChangeText={setInput}
+              placeholder="Ask your assistant…"
+              autoCapitalize="sentences"
+            />
+          </View>
+          <Pressable
+            accessibilityLabel="Send"
+            disabled={!input.trim() || thinking}
+            onPress={() => send(input)}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: !input.trim() || thinking ? colors.aiTint : colors.ai,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon
+              name="send"
+              size={18}
+              color={!input.trim() || thinking ? colors.aiDeep : colors.onAi}
+            />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

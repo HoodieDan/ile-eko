@@ -13,9 +13,18 @@ const TABS: Record<string, { label: string; icon: IconName; center?: boolean }> 
   account: { label: 'Account', icon: 'user' },
 };
 
+/** Routes that own the full screen — the tab bar is hidden while they're focused. */
+const FULL_SCREEN_ROUTES = new Set(['ai']);
+
 /** Custom bottom tab bar — forest-green tabs with the iris AI bubble centred. */
-function VerdantTabBar({ state, navigation }: BottomTabBarProps): React.ReactElement {
+function VerdantTabBar({ state, navigation }: BottomTabBarProps): React.ReactElement | null {
   const insets = useSafeAreaInsets();
+
+  // The AI assistant is a focused, chat-style surface: it hides the tab bar and
+  // provides its own back button, so the composer can sit on the true bottom edge.
+  const current = state.routes[state.index]?.name;
+  if (current && FULL_SCREEN_ROUTES.has(current)) return null;
+
   return (
     <View
       style={{
