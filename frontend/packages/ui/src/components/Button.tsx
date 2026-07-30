@@ -124,6 +124,8 @@ export interface IconButtonProps {
   iconSize?: number;
   color?: string;
   disabled?: boolean;
+  /** Icon-only buttons carry no text, so screen readers need this. */
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -135,6 +137,7 @@ export function IconButton({
   iconSize = 22,
   color = colors.ink,
   disabled = false,
+  accessibilityLabel,
   style,
 }: IconButtonProps): React.ReactElement {
   const dim = size ?? (variant === 'surface' ? 44 : 42);
@@ -142,6 +145,8 @@ export function IconButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         {
           width: dim,
