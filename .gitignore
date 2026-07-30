@@ -2,6 +2,10 @@
 .DS_Store
 Thumbs.db
 
+# Project write-up / dissertation. Deliberately untracked: this is a PUBLIC repo
+# and the document carries personal details (name, matric number).
+docs/
+
 # Node
 node_modules/
 npm-debug.log*
