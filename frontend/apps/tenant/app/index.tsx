@@ -2,18 +2,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, View } from 'react-native';
+import { ActivityIndicator, Animated, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchTenantBoot, useAuth } from '@ile-eko/core';
 import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
 
-/** Hard ceiling on the preload — a dead network must never trap the user here. */
+/**
+ * Failure ceiling, not an early exit: without it a dead network would hold the
+ * user on the splash forever. Reaching it means something is wrong, and Explore
+ * falls back to its own loading state.
+ */
 const PRELOAD_TIMEOUT_MS = 8000;
 
 /**
- * Branded splash. Browse-first: after a short beat we drop straight into the
- * Explore marketplace (no auth gate). We hold until the listings are cached so
- * Explore opens populated rather than empty. Tap to skip.
+ * Branded splash. Browse-first: we drop straight into the Explore marketplace
+ * (no auth gate), but only once the listings are cached so it opens populated
+ * rather than empty. There is deliberately no way to tap past it.
  */
 export default function Splash(): React.ReactElement {
   const router = useRouter();
@@ -23,8 +27,6 @@ export default function Splash(): React.ReactElement {
   const [preloaded, setPreloaded] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(12)).current;
-
-  const go = (): void => router.replace('/(tabs)/explore');
 
   useEffect(() => {
     Animated.parallel([
@@ -56,7 +58,7 @@ export default function Splash(): React.ReactElement {
   }, [elapsed, preloaded, router]);
 
   return (
-    <Pressable style={{ flex: 1 }} onPress={go}>
+    <View style={{ flex: 1 }}>
       <StatusBar style="light" />
       <LinearGradient
         colors={heroGradient}
@@ -87,10 +89,10 @@ export default function Splash(): React.ReactElement {
         <View style={{ paddingBottom: 48, alignItems: 'center', gap: 14 }}>
           <ActivityIndicator color="#FFFFFF" />
           <Text variant="caption" color="rgba(255,255,255,0.6)">
-            Tap to continue
+            Loading listings…
           </Text>
         </View>
       </LinearGradient>
-    </Pressable>
+    </View>
   );
 }

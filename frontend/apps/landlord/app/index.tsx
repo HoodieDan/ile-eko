@@ -2,18 +2,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, View } from 'react-native';
+import { ActivityIndicator, Animated, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchLandlordBoot, useAuth } from '@ile-eko/core';
 import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
 
-/** Hard ceiling on the preload — a dead network must never trap the user here. */
+/**
+ * Failure ceiling, not an early exit: without it a dead network would hold the
+ * user on the splash forever. Reaching it means something is wrong, and the
+ * destination screens fall back to their own loading states.
+ */
 const PRELOAD_TIMEOUT_MS = 8000;
 
 /**
  * Branded splash → routes on once the minimum display time has elapsed, auth
  * status is known, and (when signed in) the dashboard's data is in the cache.
- * Handing over early means the user watches the home screen assemble itself.
+ * There is deliberately no way to tap past it: handing over early means the
+ * user watches the home screen assemble itself.
  */
 export default function Splash(): React.ReactElement {
   const router = useRouter();
@@ -62,16 +67,8 @@ export default function Splash(): React.ReactElement {
     }
   }, [elapsed, ready, status, router]);
 
-  // Tapping through skips the remaining wait; the destination screens still
-  // have their own loading states for anything that hasn't landed.
-  const skip = (): void => {
-    if (status !== 'loading') {
-      router.replace(status === 'authenticated' ? '/(tabs)' : '/(auth)/onboarding');
-    }
-  };
-
   return (
-    <Pressable style={{ flex: 1 }} onPress={skip}>
+    <View style={{ flex: 1 }}>
       <StatusBar style="light" />
       <LinearGradient
         colors={heroGradient}
@@ -102,10 +99,10 @@ export default function Splash(): React.ReactElement {
         <View style={{ paddingBottom: 48, alignItems: 'center', gap: 14 }}>
           <ActivityIndicator color="#FFFFFF" />
           <Text variant="caption" color="rgba(255,255,255,0.6)">
-            Tap to continue
+            Loading your portfolio…
           </Text>
         </View>
       </LinearGradient>
-    </Pressable>
+    </View>
   );
 }
