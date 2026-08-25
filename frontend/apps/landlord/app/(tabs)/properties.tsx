@@ -160,7 +160,7 @@ export default function PropertiesScreen(): React.ReactElement {
                   transform: [{ scale: pressed ? 0.985 : 1 }],
                 })}
               >
-                <PropertyThumb size={64} radius={13} />
+                <PropertyThumb size={64} radius={13} imageUrl={p.images[0]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View
                     style={{

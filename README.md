@@ -71,3 +71,15 @@ cd frontend/apps/landlord && npx expo start
 ## Environment
 
 Each app reads `EXPO_PUBLIC_API_URL` from its own `.env`. Copy `.env.example` to `.env` and point it at your backend (or leave the default mock URL while the backend is reserved).
+
+## Demo accounts
+
+The additive screenshot seed uses these stable account emails:
+
+- Landlord: `landlord@example.com`
+- Tenant: `tenant@example.com`
+- Caretaker: `caretaker@example.com`
+
+Run `pnpm --dir backend seed` after configuring `backend/.env`. The seed preserves the
+password hashes of existing demo accounts; `SEED_PASSWORD` is used only when an account does
+not exist. Seeding is refused in production and requires `SEED_ALLOW=1` in development.

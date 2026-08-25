@@ -17,6 +17,8 @@ export const ListingSummary = z.object({
   verified: z.boolean(),
   amenities: z.array(z.string()),
   landlordName: z.string(),
+  /** Resolved first image for feed/search cards; the detail DTO still carries the full gallery. */
+  imageUrl: z.string().optional(),
   listedAt: IsoDate.optional(),
   // personalized (only for authed tenants)
   saved: z.boolean().optional(),

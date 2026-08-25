@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { PaymentFrequency } from '../types';
+import { invalidateLedgerQueries } from './invalidateLedgerQueries';
 
 export interface TenantRiskDTO {
   band: 'low' | 'medium' | 'high';
@@ -104,10 +105,8 @@ export function useCreateLease() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateLeaseInput) => api.post('/leases', input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tenants'] });
-      qc.invalidateQueries({ queryKey: ['properties'] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    onSuccess: async () => {
+      await invalidateLedgerQueries(qc);
     },
   });
 }

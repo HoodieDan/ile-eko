@@ -18,6 +18,7 @@ import { emitActivity } from './activityLog';
 import { emitEvent } from './outbox';
 import { setTargetOccupancy } from './occupancy';
 import { refreshListingProjection } from './listingProjection';
+import { recomputeRiskDeterministic } from '../ai/risk';
 
 export interface Actor {
   userId: string;
@@ -108,6 +109,8 @@ export async function createLease(
       const obligations = buildObligations(created);
       if (obligations.length) await RentObligation.insertMany(obligations, { session });
 
+      await recomputeRiskDeterministic(tenant.id, session);
+
       await setTargetOccupancy(session, property.id, input.unitId ?? null, true);
       await refreshListingProjection(session, property.id, input.unitId ?? null, false);
 
@@ -153,6 +156,8 @@ export async function endLease(leaseId: string, actor: Actor): Promise<void> {
         { leaseId: lease._id, settlement: 'unallocated', dueDate: { $gt: new Date() } },
         { session },
       );
+
+      await recomputeRiskDeterministic(String(lease.tenantId), session);
 
       await setTargetOccupancy(session, String(lease.propertyId), lease.unitId ? String(lease.unitId) : null, false);
       await refreshListingProjection(
@@ -270,6 +275,7 @@ export async function logPayment(
       );
       payment = p!;
       await allocate(session, payment, input.amount, input.allocateTo);
+      await recomputeRiskDeterministic(String(lease.tenantId), session);
 
       await emitActivity(session, {
         actorId: actor.userId,
@@ -340,6 +346,8 @@ export async function reversePayment(paymentId: string, actor: Actor): Promise<P
           await ob.save({ session });
         }
       }
+
+      await recomputeRiskDeterministic(String(original.tenantId), session);
 
       await emitActivity(session, {
         actorId: actor.userId,

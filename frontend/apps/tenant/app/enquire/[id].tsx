@@ -116,7 +116,7 @@ function EnquireForm({
       >
         {/* Listing summary */}
         <Card flat style={{ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10 }}>
-          <PropertyThumb size={48} radius={11} />
+          <PropertyThumb size={48} radius={11} imageUrl={listing.imageUrl} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="bodyStrong" style={{ fontSize: 14 }} numberOfLines={1}>
               {listing.title}

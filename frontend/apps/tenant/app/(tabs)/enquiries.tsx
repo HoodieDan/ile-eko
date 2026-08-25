@@ -37,7 +37,7 @@ function EnquiryCard({
   return (
     <Card padding={14} flat onPress={() => onOpen(enquiry.listingId)}>
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        <PropertyThumb size={52} radius={12} />
+        <PropertyThumb size={52} radius={12} imageUrl={listing?.imageUrl} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View
             style={{

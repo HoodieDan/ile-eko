@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Avatar,
@@ -171,7 +171,29 @@ export default function ListingDetail(): React.ReactElement | null {
               paddingTop: insets.top,
             }}
           >
-            <Icon name="building" size={120} color="rgba(255,255,255,0.16)" strokeWidth={1.4} />
+            {l.images[0] ? (
+              <>
+                <Image
+                  source={{ uri: l.images[0] }}
+                  resizeMode="cover"
+                  accessibilityIgnoresInvertColors
+                  style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                />
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    backgroundColor: 'rgba(10,38,29,0.30)',
+                  }}
+                />
+              </>
+            ) : (
+              <Icon name="building" size={120} color="rgba(255,255,255,0.16)" strokeWidth={1.4} />
+            )}
             <View
               style={{
                 position: 'absolute',

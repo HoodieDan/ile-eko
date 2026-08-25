@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, newIdempotencyKey } from '../api/client';
 import type { DashboardSummaryNumbers } from './useDashboard';
+import { invalidateLedgerQueries } from './invalidateLedgerQueries';
 
 export function usePaymentsSummary() {
   return useQuery<DashboardSummaryNumbers>({
@@ -24,11 +25,9 @@ export function useLogPayment() {
   return useMutation({
     mutationFn: (input: LogPaymentInput) =>
       api.post('/payments', input, { idempotencyKey: newIdempotencyKey() }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tenants'] });
-      qc.invalidateQueries({ queryKey: ['payments'] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
-      qc.invalidateQueries({ queryKey: ['activity'] });
+    onSuccess: async () => {
+      // Await active refetches so callers do not close their sheet onto stale data.
+      await invalidateLedgerQueries(qc);
     },
   });
 }

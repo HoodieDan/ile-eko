@@ -28,6 +28,7 @@ export interface ListingSummary {
   verified: boolean;
   amenities: string[];
   landlordName: string;
+  imageUrl?: string;
   listedAt?: string;
   saved?: boolean;
   recommended?: boolean;

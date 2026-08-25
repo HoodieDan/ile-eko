@@ -187,7 +187,7 @@ export default function Explore(): React.ReactElement {
                 ]}
               >
                 <View>
-                  <PropertyThumb height={120} width="100%" radius={0} glyphSize={42} />
+                  <PropertyThumb height={120} width="100%" radius={0} glyphSize={42} imageUrl={l.imageUrl} />
                   <View style={{ position: 'absolute', top: 10, left: 10 }}>
                     <Chip label="Match" tone="ai" icon="spark" solid />
                   </View>
@@ -271,7 +271,7 @@ function ListingCard({
       ]}
     >
       <View>
-        <PropertyThumb height={172} width="100%" radius={0} glyphSize={56} />
+        <PropertyThumb height={172} width="100%" radius={0} glyphSize={56} imageUrl={l.imageUrl} />
         {l.verified ? (
           <View style={{ position: 'absolute', top: 12, left: 12 }}>
             <Chip

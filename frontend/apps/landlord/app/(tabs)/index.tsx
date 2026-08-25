@@ -390,7 +390,7 @@ export default function Dashboard(): React.ReactElement {
                   opacity: pressed ? 0.85 : 1,
                 })}
               >
-                <PropertyThumb size={64} radius={13} />
+                <PropertyThumb size={64} radius={13} imageUrl={p.images[0]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text variant="title" numberOfLines={1} style={{ fontSize: 15.5, lineHeight: 19 }}>
                     {p.propertyTitle}

@@ -32,6 +32,7 @@ import {
   type TenantDTO,
   type PaymentReceiptDTO,
 } from '@ile-eko/core';
+import { openTenantContact, type TenantContactChannel } from '@/contact/tenantContact';
 
 type RiskBand = NonNullable<TenantDTO['risk']>['band'];
 
@@ -133,6 +134,16 @@ export default function TenantDetailScreen(): React.ReactElement | null {
   const { data: t, isLoading, isError, refetch } = useTenant(id);
   const { data: prop } = useProperty(t?.propertyId);
 
+  const contact = async (channel: TenantContactChannel): Promise<void> => {
+    const opened = await openTenantContact(channel, t?.phone);
+    if (!opened) {
+      showToast(
+        channel === 'call' ? "Couldn't open the phone dialler" : "Couldn't open messages",
+        'alert',
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -205,7 +216,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               gap: spacing.md,
             }}
           >
-            <PropertyThumb size={48} radius={radii.md} />
+            <PropertyThumb size={48} radius={radii.md} imageUrl={prop.images[0]} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text variant="label" color={colors.muted}>
                 RENTS
@@ -229,7 +240,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               variant="secondary"
               size="sm"
               icon="phone"
-              onPress={() => showToast(`Calling ${t.fullName}`)}
+              onPress={() => void contact('call')}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -238,7 +249,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               variant="secondary"
               size="sm"
               icon="message"
-              onPress={() => showToast(`Message to ${t.fullName}`)}
+              onPress={() => void contact('message')}
             />
           </View>
         </View>

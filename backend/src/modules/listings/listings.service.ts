@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Types } from 'mongoose';
 import { AppError } from '../../utils/AppError';
 import { Listing, ListingView, SavedListing, type ListingDoc } from '../../models';
-import { urlsFor } from '../../services/storage';
+import { urlFor, urlsFor } from '../../services/storage';
 import type {
   ListingDetail,
   ListingFilters,
@@ -26,6 +26,7 @@ function summary(l: ListingDoc): ListingSummary {
     verified: Boolean(l.verified),
     amenities: l.amenities ?? [],
     landlordName: l.landlordName ?? '',
+    ...(l.images?.[0] ? { imageUrl: urlFor(l.images[0]) } : {}),
     ...(l.listedAt ? { listedAt: (l.listedAt as Date).toISOString() } : {}),
   };
 }
@@ -48,7 +49,11 @@ function buildQuery(filters: ParsedSearchFilters & ListingFilters): Record<strin
 }
 
 /** Merge personalized saved/recommended flags for an authed tenant. */
-async function personalize(items: ListingSummary[], tenantUserId?: string, recommendedIds?: Set<string>): Promise<ListingSummary[]> {
+async function personalize(
+  items: ListingSummary[],
+  tenantUserId?: string,
+  recommendedIds?: Set<string>,
+): Promise<ListingSummary[]> {
   if (!tenantUserId) return items;
   const saved = await SavedListing.find({ tenantUserId }, { listingId: 1 }).lean();
   const savedSet = new Set(saved.map((s) => String(s.listingId)));
@@ -80,7 +85,11 @@ export async function getListing(id: string, tenantUserId?: string): Promise<Lis
 }
 
 /** Record a view (deduped per viewerKey), incrementing on first insert only (§5.14). */
-export async function recordView(listingId: string, viewerKey: string, userId?: string): Promise<void> {
+export async function recordView(
+  listingId: string,
+  viewerKey: string,
+  userId?: string,
+): Promise<void> {
   if (!Types.ObjectId.isValid(listingId)) return;
   const hashed = createHash('sha256').update(`${viewerKey}::ile-eko`).digest('hex');
   try {
@@ -92,7 +101,11 @@ export async function recordView(listingId: string, viewerKey: string, userId?: 
   }
 }
 
-export async function toggleListing(landlordId: string, id: string, listed: boolean): Promise<ListingSummary> {
+export async function toggleListing(
+  landlordId: string,
+  id: string,
+  listed: boolean,
+): Promise<ListingSummary> {
   if (!Types.ObjectId.isValid(id)) throw AppError.notFound('Listing not found');
   const doc = await Listing.findOne({ _id: id, landlordId });
   if (!doc) throw AppError.notFound('Listing not found');

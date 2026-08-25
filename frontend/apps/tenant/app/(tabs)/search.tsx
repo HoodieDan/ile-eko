@@ -39,7 +39,7 @@ function ListingCard({
   return (
     <Card padding={0} onPress={() => onOpen(l.id)} style={{ overflow: 'hidden' }}>
       <View style={{ position: 'relative' }}>
-        <PropertyThumb height={172} width="100%" radius={0} glyphSize={56} tag="listing photo" />
+        <PropertyThumb height={172} width="100%" radius={0} glyphSize={56} tag="listing photo" imageUrl={l.imageUrl} />
         {l.verified ? (
           <View style={{ position: 'absolute', top: 12, left: 12 }}>
             <Chip

@@ -17,10 +17,13 @@ export async function refreshListingProjection(
   const baths = unit?.bathrooms ?? property.bathrooms ?? 0;
   const size = unit?.sizeSqm ?? property.sizeSqm ?? 0;
   const rent = unit?.rentAmount ?? property.rentAmount ?? 0;
-  const amenities = unit?.amenities?.length ? unit.amenities : property.amenities ?? [];
-  const images = unit?.images?.length ? unit.images : property.images ?? [];
-  const title = property.propertyTitle;
-  const searchText = `${title} ${property.area} ${property.lga} ${property.description}`.toLowerCase();
+  const amenities = unit?.amenities?.length ? unit.amenities : (property.amenities ?? []);
+  const images = unit?.images?.length ? unit.images : (property.images ?? []);
+  const title = unit
+    ? `${property.propertyTitle} · Unit ${unit.unitNumber}`
+    : property.propertyTitle;
+  const searchText =
+    `${title} ${property.area} ${property.lga} ${property.description}`.toLowerCase();
 
   await Listing.updateOne(
     { propertyId, unitId: unitId ?? { $exists: false } },
@@ -60,9 +63,10 @@ export async function ensureListingsForProperty(
   property: PropertyDoc,
 ): Promise<void> {
   if (property.hasUnits) {
-    const units = await Unit.find({ propertyId: property._id, archivedAt: { $exists: false } }).session(
-      session,
-    );
+    const units = await Unit.find({
+      propertyId: property._id,
+      archivedAt: { $exists: false },
+    }).session(session);
     for (const u of units) {
       await refreshListingProjection(session, property.id, u.id, u.statusCache === 'vacant');
     }

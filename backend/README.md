@@ -33,6 +33,21 @@ Optional: `WORKER_INLINE=true` drains the outbox in-process for local dev.
 `pnpm dev` · `pnpm build` · `pnpm start` · `pnpm typecheck` · `pnpm test` · `pnpm seed`
 (tests spin up an in-memory replica set — real transactions.)
 
+## Screenshot demo data
+
+`pnpm seed` additively prepares the database for the Chapter Four screenshots. It preserves
+unrelated records and existing password hashes, and can be rerun safely to refresh the named
+properties, leases, ledger states, marketplace listings, enquiries, team assignments and
+activity entries.
+
+- Landlord: `landlord@example.com`
+- Tenant: `tenant@example.com`
+- Caretaker: `caretaker@example.com`
+
+Set `SEED_ALLOW=1` in development. Set `SEED_PASSWORD` only when missing demo accounts must be
+created; existing passwords are never replaced. The fixture image manifest, including source
+pages and credits, is kept in `src/seed/demoData.ts`.
+
 ## Layout
 
 ```

@@ -29,8 +29,28 @@ async function withLease(token: string, startDate = '2026-01-01', endDate = '202
 
 describe('M5 risk: deterministic scoring', () => {
   it('scoreRisk is a pure deterministic function of features', () => {
-    expect(scoreRisk({ totalObligations: 1, paidObligations: 1, overdueCount: 0, maxDaysOverdue: 0, partialRatio: 0, paidRatio: 1 }).band).toBe('low');
-    const high = scoreRisk({ totalObligations: 3, paidObligations: 0, overdueCount: 3, maxDaysOverdue: 120, partialRatio: 0.3, paidRatio: 0 });
+    expect(
+      scoreRisk({
+        totalObligations: 1,
+        paidObligations: 1,
+        overdueCount: 0,
+        maxDaysOverdue: 0,
+        latePaidCount: 0,
+        maxDaysLate: 0,
+        partialRatio: 0,
+        paidRatio: 1,
+      }).band,
+    ).toBe('low');
+    const high = scoreRisk({
+      totalObligations: 3,
+      paidObligations: 0,
+      overdueCount: 3,
+      maxDaysOverdue: 120,
+      latePaidCount: 0,
+      maxDaysLate: 0,
+      partialRatio: 0.3,
+      paidRatio: 0,
+    });
     expect(high.band).toBe('high');
     expect(high.score).toBeGreaterThan(0.66);
   });
@@ -42,16 +62,40 @@ describe('M5 risk: deterministic scoring', () => {
     const risk = await request(app).post(`/v1/tenants/${tenantId}/risk/recompute`).set(auth(token));
     expect(risk.status).toBe(200);
     expect(['medium', 'high']).toContain(risk.body.band);
-    expect(risk.body.scoringVersion).toBe('risk-v1');
+    expect(risk.body.scoringVersion).toBe('risk-v2');
 
     // tenant list now shows cached risk
     const list = await request(app).get('/v1/tenants').set(auth(token));
     expect(list.body.items[0].risk.band).toBe(risk.body.band);
 
-    // pay in full → recompute → low
-    await request(app).post('/v1/payments').set(auth(token)).set('Idempotency-Key', randomUUID()).send({ leaseId, amount: 1200000 });
-    const cleared = await request(app).post(`/v1/tenants/${tenantId}/risk/recompute`).set(auth(token));
-    expect(cleared.body.band).toBe('low');
+    // An on-time payment updates the cached risk inside the payment transaction.
+    await request(app)
+      .post('/v1/payments')
+      .set(auth(token))
+      .set('Idempotency-Key', randomUUID())
+      .send({ leaseId, amount: 1200000, paidAt: '2026-01-01' });
+    const cleared = await request(app).get(`/v1/tenants/${tenantId}`).set(auth(token));
+    expect(cleared.body.risk.band).toBe('low');
+    expect(cleared.body.risk.reason).toMatch(/up to date/i);
+  });
+
+  it('keeps a fully settled obligation in payment-risk history when it was paid late', async () => {
+    const token = await landlordToken();
+    const { tenantId, leaseId } = await withLease(token);
+
+    await request(app)
+      .post('/v1/payments')
+      .set(auth(token))
+      .set('Idempotency-Key', randomUUID())
+      .send({ leaseId, amount: 1200000, paidAt: '2026-08-01' });
+
+    // No manual recompute or worker drain: the payment response committed risk v2.
+    const tenant = await request(app).get(`/v1/tenants/${tenantId}`).set(auth(token));
+    expect(tenant.body.status).toBe('up-to-date');
+    expect(tenant.body.risk.band).toBe('medium');
+    expect(tenant.body.risk.scoringVersion).toBe('risk-v2');
+    expect(tenant.body.risk.reason).toMatch(/payment was completed late/i);
+    expect(tenant.body.risk.reason).toMatch(/after the due date/i);
   });
 });
 

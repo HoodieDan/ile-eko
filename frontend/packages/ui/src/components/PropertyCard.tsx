@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Pressable, View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '../tokens/colors';
 import { elevation } from '../tokens/elevation';
 import { Text } from './Text';
@@ -13,6 +13,7 @@ export interface PropertyThumbProps {
   width?: DimensionValue;
   tag?: string;
   glyphSize?: number;
+  imageUrl?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -24,6 +25,7 @@ export function PropertyThumb({
   width,
   tag,
   glyphSize,
+  imageUrl,
   style,
 }: PropertyThumbProps): React.ReactElement {
   const h = height ?? size ?? 64;
@@ -45,8 +47,17 @@ export function PropertyThumb({
         style,
       ]}
     >
-      <Icon name="building" size={glyph} color="rgba(255,255,255,0.18)" strokeWidth={1.6} />
-      {tag ? (
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        />
+      ) : (
+        <Icon name="building" size={glyph} color="rgba(255,255,255,0.18)" strokeWidth={1.6} />
+      )}
+      {tag && !imageUrl ? (
         <View style={{ position: 'absolute', left: 10, bottom: 10 }}>
           <Text
             variant="label"
@@ -68,6 +79,7 @@ export interface PropertyCardProps {
   rentSuffix?: string; // "/yr"
   status: StatusKind;
   days?: number;
+  imageUrl?: string;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -80,6 +92,7 @@ export function PropertyCard({
   rentSuffix = '/yr',
   status,
   days,
+  imageUrl,
   onPress,
   style,
 }: PropertyCardProps): React.ReactElement {
@@ -97,7 +110,7 @@ export function PropertyCard({
         style,
       ]}
     >
-      <PropertyThumb height={120} width="100%" radius={0} glyphSize={44} />
+      <PropertyThumb height={120} width="100%" radius={0} glyphSize={44} imageUrl={imageUrl} />
       <View style={{ padding: 14 }}>
         <Text variant="title" style={{ fontSize: 16, lineHeight: 20 }} numberOfLines={1}>
           {address}
@@ -134,6 +147,7 @@ export interface PropertyRowProps {
   status: StatusKind;
   days?: number;
   tone?: number;
+  imageUrl?: string;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -145,6 +159,7 @@ export function PropertyRow({
   rent,
   status,
   days,
+  imageUrl,
   onPress,
   style,
 }: PropertyRowProps): React.ReactElement {
@@ -165,7 +180,7 @@ export function PropertyRow({
         style,
       ]}
     >
-      <PropertyThumb size={64} radius={13} />
+      <PropertyThumb size={64} radius={13} imageUrl={imageUrl} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text variant="title" style={{ fontSize: 15.5, lineHeight: 19 }} numberOfLines={1}>
           {address}

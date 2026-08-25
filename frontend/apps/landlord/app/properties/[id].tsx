@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -51,6 +51,7 @@ import {
   type PaymentReceiptDTO,
   type ActivityLogDTO,
 } from '@ile-eko/core';
+import { openTenantContact, type TenantContactChannel } from '@/contact/tenantContact';
 
 const HERO_GRADIENT: readonly [string, string] = [heroGradient[0], heroGradient[1]];
 
@@ -381,6 +382,16 @@ export default function PropertyDetail(): React.ReactElement | null {
 
   const openLog = (): void => setLogVisible(true);
 
+  const contactTenant = async (channel: TenantContactChannel, target: TenantDTO): Promise<void> => {
+    const opened = await openTenantContact(channel, target.phone);
+    if (!opened) {
+      showToast(
+        channel === 'call' ? "Couldn't open the phone dialler" : "Couldn't open messages",
+        'alert',
+      );
+    }
+  };
+
   const leaseIdForLog = payments[0]?.leaseId;
 
   const confirmLog = (): void => {
@@ -416,6 +427,27 @@ export default function PropertyDetail(): React.ReactElement | null {
             justifyContent: 'space-between',
           }}
         >
+          {p.images[0] ? (
+            <>
+              <Image
+                source={{ uri: p.images[0] }}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+              />
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  left: 0,
+                  backgroundColor: 'rgba(10,38,29,0.34)',
+                }}
+              />
+            </>
+          ) : null}
           <AppBar
             onDark
             onBack={() => router.back()}
@@ -429,7 +461,9 @@ export default function PropertyDetail(): React.ReactElement | null {
             }
           />
           <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center' }}>
-            <Icon name="building" size={58} color="rgba(255,255,255,0.16)" strokeWidth={1.4} />
+            {!p.images[0] ? (
+              <Icon name="building" size={58} color="rgba(255,255,255,0.16)" strokeWidth={1.4} />
+            ) : null}
           </View>
           <View style={{ paddingHorizontal: spacing.xl, paddingBottom: 30 }}>
             <StatusChip status={occupancy} />
@@ -466,7 +500,8 @@ export default function PropertyDetail(): React.ReactElement | null {
               onOpenTenant={(tid: string) => router.push(`/tenants/${tid}`)}
               onEnquiries={() => router.push('/enquiries')}
               onListUnit={openLog}
-              onMessageTenant={() => router.push('/tenants')}
+              onCallTenant={(target) => void contactTenant('call', target)}
+              onMessageTenant={(target) => void contactTenant('message', target)}
             />
           </View>
 
@@ -585,7 +620,8 @@ interface BodyProps {
   onOpenTenant: (id: string) => void;
   onEnquiries: () => void;
   onListUnit: () => void;
-  onMessageTenant: () => void;
+  onCallTenant: (tenant: TenantDTO) => void;
+  onMessageTenant: (tenant: TenantDTO) => void;
 }
 
 function Body({
@@ -606,6 +642,7 @@ function Body({
   onOpenTenant,
   onEnquiries,
   onListUnit,
+  onCallTenant,
   onMessageTenant,
 }: BodyProps): React.ReactElement {
   const delta = suggestion?.deltaPct ?? 0;
@@ -919,7 +956,7 @@ function Body({
                     variant="secondary"
                     size="sm"
                     icon="phone"
-                    onPress={() => onOpenTenant(tenant.id)}
+                    onPress={() => onCallTenant(tenant)}
                     style={{ flex: 1 }}
                   />
                   <Button
@@ -927,7 +964,7 @@ function Body({
                     variant="secondary"
                     size="sm"
                     icon="message"
-                    onPress={onMessageTenant}
+                    onPress={() => onMessageTenant(tenant)}
                     style={{ flex: 1 }}
                   />
                 </View>

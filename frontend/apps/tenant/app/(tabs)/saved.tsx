@@ -70,7 +70,14 @@ function SavedCard({ listing, onOpen, onToggleSave }: SavedCardProps): React.Rea
       })}
     >
       <View style={{ position: 'relative' }}>
-        <PropertyThumb height={172} width="100%" radius={0} glyphSize={48} tag="listing photo" />
+        <PropertyThumb
+          height={172}
+          width="100%"
+          radius={0}
+          glyphSize={48}
+          tag="listing photo"
+          imageUrl={listing.imageUrl}
+        />
         {listing.verified ? (
           <View style={{ position: 'absolute', top: 12, left: 12 }}>
             <Chip
