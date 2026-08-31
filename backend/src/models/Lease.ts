@@ -4,7 +4,7 @@ import { Schema, model, type InferSchemaType, type HydratedDocument, Types } fro
 const leaseSchema = new Schema(
   {
     landlordId: { type: Types.ObjectId, ref: 'User', required: true, index: true },
-    tenantId: { type: Types.ObjectId, ref: 'Tenant', required: true, index: true },
+    tenantId: { type: Types.ObjectId, ref: 'Tenant', required: true },
     propertyId: { type: Types.ObjectId, ref: 'Property', required: true, index: true },
     unitId: { type: Types.ObjectId, ref: 'Unit' }, // null = standalone target
     startDate: { type: Date, required: true }, // date-only (UTC midnight)
@@ -13,6 +13,8 @@ const leaseSchema = new Schema(
     annualizedRent: { type: Number, required: true },
     schedule: { type: String, required: true },
     status: { type: String, enum: ['active', 'ended', 'renewed'], default: 'active' },
+    endReason: { type: String, enum: ['ended', 'evicted'] },
+    endedAt: { type: Date },
     supersedesLeaseId: { type: Types.ObjectId, ref: 'Lease' },
     createdBy: { type: Types.ObjectId, ref: 'User', required: true },
   },
@@ -24,6 +26,8 @@ leaseSchema.index(
   { propertyId: 1, unitId: 1 },
   { unique: true, partialFilterExpression: { status: 'active' } },
 );
+// A person can occupy only one target at a time. Historical leases remain unrestricted.
+leaseSchema.index({ tenantId: 1 }, { unique: true, partialFilterExpression: { status: 'active' } });
 
 export type LeaseDoc = HydratedDocument<InferSchemaType<typeof leaseSchema>>;
 export const Lease = model('Lease', leaseSchema);

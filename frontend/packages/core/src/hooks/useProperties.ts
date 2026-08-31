@@ -92,3 +92,21 @@ export function useCreateProperty() {
     },
   });
 }
+
+export type UpdatePropertyInput = Partial<CreatePropertyInput> & { images?: string[] };
+
+export function useUpdateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdatePropertyInput }) =>
+      api.patch<PropertyDTO>(`/properties/${id}`, input),
+    onSuccess: async (_property, variables) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['property', variables.id] }),
+        qc.invalidateQueries({ queryKey: ['properties'] }),
+        qc.invalidateQueries({ queryKey: ['dashboard'] }),
+        qc.invalidateQueries({ queryKey: ['listings'] }),
+      ]);
+    },
+  });
+}

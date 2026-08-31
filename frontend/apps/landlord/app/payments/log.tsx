@@ -1,44 +1,35 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import {
   AICard,
   AILabel,
   AppBar,
   Avatar,
-  BottomSheet,
   Button,
   Card,
   EmptyState,
   Icon,
-  Input,
   Screen,
   StatusChip,
   Text,
   colors,
   spacing,
   radii,
-  useToast,
   type StatusKind,
 } from '@ile-eko/ui';
 import {
-  api,
   useProperties,
   usePaymentsSummary,
   useTenants,
-  useLogPayment,
-  useUpload,
   initialsOf,
   naira,
   nairaShort,
   type TenantDTO,
   type PropertyDTO,
-  type PaymentReceiptDTO,
 } from '@ile-eko/core';
-import { pickImages } from '../../src/media/pickImages';
+import { LogPaymentSheet } from '../../src/payments/LogPaymentSheet';
 
-type PaymentMethod = NonNullable<PaymentReceiptDTO['method']>;
 type Filter = 'all' | 'overdue' | 'due' | 'paid' | 'vacant';
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -103,7 +94,13 @@ export default function LogPayment(): React.ReactElement {
   const outstanding = summary.overdueAmt + summary.dueAmt;
 
   const counts = useMemo<Record<Filter, number>>(() => {
-    const c: Record<Filter, number> = { all: tenants.length, paid: 0, due: 0, overdue: 0, vacant: 0 };
+    const c: Record<Filter, number> = {
+      all: tenants.length,
+      paid: 0,
+      due: 0,
+      overdue: 0,
+      vacant: 0,
+    };
     for (const t of tenants) {
       const b = bucketOf(t.status);
       if (b) c[b] += 1;
@@ -123,11 +120,7 @@ export default function LogPayment(): React.ReactElement {
 
   return (
     <Screen scroll padded bottomSpace={120}>
-      <AppBar
-        title="Rent & payments"
-        subtitle="Current cycle"
-        onBack={() => router.back()}
-      />
+      <AppBar title="Rent & payments" subtitle="Current cycle" onBack={() => router.back()} />
 
       {/* Summary tiles */}
       <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
@@ -258,7 +251,8 @@ export default function LogPayment(): React.ReactElement {
           <View style={{ gap: spacing.md }}>
             {list.map((t) => {
               const prop = t.propertyId ? propById.get(t.propertyId) : undefined;
-              const actionable = t.status === 'overdue' || t.status === 'due' || t.status === 'partial';
+              const actionable =
+                t.status === 'overdue' || t.status === 'due' || t.status === 'partial';
               const dd = daysUntil(t.paymentDueDate);
               const days =
                 t.status === 'overdue' && dd != null
@@ -327,286 +321,5 @@ export default function LogPayment(): React.ReactElement {
         onClose={() => setTarget(null)}
       />
     </Screen>
-  );
-}
-
-interface MethodOption {
-  id: PaymentMethod;
-  label: string;
-}
-
-const METHODS: MethodOption[] = [
-  { id: 'cash', label: 'Cash' },
-  { id: 'transfer', label: 'Bank transfer' },
-  { id: 'card', label: 'POS / card' },
-  { id: 'other', label: 'Mobile / other' },
-];
-
-interface LogPaymentSheetProps {
-  tenant: TenantDTO | null;
-  property: PropertyDTO | undefined;
-  onClose: () => void;
-}
-
-function LogPaymentSheet({ tenant, property, onClose }: LogPaymentSheetProps): React.ReactElement {
-  const { showToast } = useToast();
-  const logPayment = useLogPayment();
-  const upload = useUpload();
-
-  const name = tenant?.fullName ?? 'No tenant';
-  const where = property ? `${property.propertyTitle}, ${property.area}` : undefined;
-  const initials = tenant ? initialsOf(tenant.fullName) : '—';
-
-  // A payment needs a leaseId: use the tenant's active lease (works for a first
-  // payment), falling back to the most recent receipt's lease.
-  const { data: paymentsEnvelope } = useQuery<{ items: PaymentReceiptDTO[] }>({
-    queryKey: ['payments', 'tenant', tenant?.id],
-    enabled: Boolean(tenant),
-    queryFn: () =>
-      api.get<{ items: PaymentReceiptDTO[] }>('/payments', { query: { tenantId: tenant!.id } }),
-  });
-  const leaseId = tenant?.leaseId ?? paymentsEnvelope?.items?.[0]?.leaseId;
-
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('transfer');
-  const [period, setPeriod] = useState('Current cycle');
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [receiptKey, setReceiptKey] = useState<string | null>(null);
-  const [touched, setTouched] = useState(false);
-
-  // Re-seed the amount whenever a new tenant opens the sheet.
-  const seedRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (tenant && seedRef.current !== tenant.id) {
-      seedRef.current = tenant.id;
-      setAmount(String(tenant.rentAmount ?? ''));
-      setMethod('transfer');
-      setPeriod('Current cycle');
-      setDate(new Date().toISOString().slice(0, 10));
-      setReceiptKey(null);
-      setTouched(false);
-    }
-    if (!tenant) seedRef.current = null;
-  }, [tenant]);
-
-  const num = Number(amount.replace(/[^\d]/g, ''));
-  const err = !num ? 'Enter an amount' : num < 1000 ? 'Amount looks too small' : '';
-
-  /**
-   * The tenant already exists, so the receipt can be uploaded straight away —
-   * `/uploads/sign` checks the tenant belongs to this landlord (§9).
-   */
-  async function attachReceipt(): Promise<void> {
-    if (!tenant) return;
-    const picked = await pickImages();
-    if (picked.status === 'denied') {
-      showToast('Photo library access is off', 'alert');
-      return;
-    }
-    if (picked.status === 'cancelled') return;
-    const image = picked.images[0];
-    if (!image) return;
-    try {
-      const { objectKey } = await upload.mutateAsync({
-        kind: 'receipt',
-        resourceId: tenant.id,
-        uri: image.uri,
-        ...(image.mimeType ? { mimeType: image.mimeType } : {}),
-        ...(image.sizeBytes !== undefined ? { sizeBytes: image.sizeBytes } : {}),
-        ...(image.fileName ? { fileName: image.fileName } : {}),
-      });
-      setReceiptKey(objectKey);
-      showToast('Receipt attached');
-    } catch {
-      showToast("Couldn't upload the receipt", 'alert');
-    }
-  }
-
-  function confirm(): void {
-    setTouched(true);
-    if (err) return;
-    if (!leaseId) {
-      showToast('No active lease to log against');
-      return;
-    }
-    logPayment.mutate(
-      {
-        leaseId,
-        amount: num,
-        paidAt: date,
-        method,
-        periodCovered: period,
-        ...(receiptKey ? { receiptKey } : {}),
-      },
-      {
-        onSuccess: () => {
-          onClose();
-          showToast('Payment logged');
-        },
-        onError: () => showToast('Could not log payment'),
-      },
-    );
-  }
-
-  return (
-    <BottomSheet visible={tenant !== null} onClose={onClose} title="Log payment" scroll>
-      {/* Tenant / property card */}
-      <Card
-        flat
-        padding={0}
-        style={{
-          marginTop: spacing.lg,
-          marginBottom: spacing.lg,
-          paddingVertical: 11,
-          paddingHorizontal: 13,
-          backgroundColor: colors.surface2,
-          borderWidth: 0,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-          <Avatar initials={initials} size={40} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text variant="bodyStrong" numberOfLines={1}>
-              {name}
-            </Text>
-            <Text variant="caption" color={colors.muted} numberOfLines={1}>
-              {where}
-            </Text>
-          </View>
-        </View>
-      </Card>
-
-      {/* Amount */}
-      <Input
-        label="Amount received"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="numeric"
-        placeholder="0"
-        error={touched && err ? err : undefined}
-      />
-
-      {/* Payment date / Period covered */}
-      <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
-        <Input
-          label="Payment date"
-          value={date}
-          onChangeText={setDate}
-          containerStyle={{ flex: 1 }}
-        />
-        <Input
-          label="Period covered"
-          value={period}
-          onChangeText={setPeriod}
-          containerStyle={{ flex: 1 }}
-        />
-      </View>
-
-      {/* Method */}
-      <View style={{ marginTop: spacing.lg }}>
-        <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13, marginBottom: 7 }}>
-          Method
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-          {METHODS.map((m) => {
-            const on = m.id === method;
-            return (
-              <Pressable
-                key={m.id}
-                onPress={() => setMethod(m.id)}
-                style={{
-                  flexGrow: 1,
-                  flexBasis: '47%',
-                  minHeight: 46,
-                  borderRadius: radii.md,
-                  borderWidth: 1.5,
-                  borderColor: on ? colors.primary : colors.line,
-                  backgroundColor: on ? colors.primaryTint : colors.surface,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 7,
-                }}
-              >
-                {on ? (
-                  <Icon name="check" size={15} color={colors.primary} strokeWidth={2.4} />
-                ) : null}
-                <Text variant="captionStrong" color={on ? colors.primary : colors.ink}>
-                  {m.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Receipt */}
-      <View style={{ marginTop: spacing.lg }}>
-        <Text variant="captionStrong" color={colors.ink} style={{ fontSize: 13, marginBottom: 7 }}>
-          Receipt
-        </Text>
-        {receiptKey ? (
-          <View
-            style={{
-              minHeight: 56,
-              paddingHorizontal: 14,
-              borderRadius: radii.input,
-              borderWidth: 1.6,
-              borderColor: colors.ok,
-              backgroundColor: colors.surface2,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 9,
-            }}
-          >
-            <Icon name="checkCircle" size={19} color={colors.ok} strokeWidth={2.2} />
-            <Text variant="captionStrong" color={colors.ok} style={{ flex: 1 }}>
-              Receipt attached
-            </Text>
-            <Pressable onPress={() => setReceiptKey(null)} hitSlop={10}>
-              <Text variant="captionStrong" color={colors.muted}>
-                Remove
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            onPress={() => {
-              void attachReceipt();
-            }}
-            disabled={upload.isPending || !tenant}
-            style={{
-              minHeight: 56,
-              borderRadius: radii.input,
-              borderWidth: 1.6,
-              borderStyle: 'dashed',
-              borderColor: colors.line,
-              backgroundColor: colors.surface2,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 9,
-              opacity: upload.isPending ? 0.6 : 1,
-            }}
-          >
-            {upload.isPending ? (
-              <ActivityIndicator color={colors.muted} />
-            ) : (
-              <Icon name="image" size={19} color={colors.muted} />
-            )}
-            <Text variant="captionStrong" color={colors.muted}>
-              {upload.isPending ? 'Uploading receipt…' : 'Attach receipt photo'}
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
-      <Button
-        title={`Log ${naira(num)}`}
-        onPress={confirm}
-        loading={logPayment.isPending}
-        style={{ marginTop: spacing.lg }}
-      />
-    </BottomSheet>
   );
 }

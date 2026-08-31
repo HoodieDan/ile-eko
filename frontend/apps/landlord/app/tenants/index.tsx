@@ -16,26 +16,20 @@ import {
   radii,
   type StatusKind,
 } from '@ile-eko/ui';
-import {
-  useTenants,
-  useProperties,
-  initialsOf,
-  nairaShort,
-  type TenantDTO,
-} from '@ile-eko/core';
+import { useTenants, useProperties, initialsOf, nairaShort, type TenantDTO } from '@ile-eko/core';
 
-type FilterId = 'all' | 'current' | 'action';
+type FilterId = 'current' | 'action' | 'evicted';
 
 const FILTERS: { id: FilterId; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'current', label: 'Up to date' },
+  { id: 'current', label: 'Current' },
   { id: 'action', label: 'Needs action' },
+  { id: 'evicted', label: 'Evicted' },
 ];
 
 const ACTION_STATES: TenantDTO['status'][] = ['overdue', 'partial', 'due'];
 
 const isFilterId = (v: unknown): v is FilterId =>
-  v === 'all' || v === 'current' || v === 'action';
+  v === 'current' || v === 'action' || v === 'evicted';
 
 const RISK_LABEL: Record<NonNullable<TenantDTO['risk']>['band'], string> = {
   low: 'Low',
@@ -46,7 +40,7 @@ const RISK_LABEL: Record<NonNullable<TenantDTO['risk']>['band'], string> = {
 /** Tenant lifecycle status → the status pill the UI renders. */
 export function tenantChip(status: TenantDTO['status']): StatusKind {
   if (status === 'up-to-date') return 'paid';
-  if (status === 'no-lease') return 'vacant';
+  if (status === 'no-lease') return 'pending';
   return status;
 }
 
@@ -64,9 +58,9 @@ export default function TenantsScreen(): React.ReactElement {
   // AI briefs and notifications link here pre-filtered (e.g. "Overdue rent"
   // lands on the people who need chasing rather than the whole roll).
   const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
-  const [filter, setFilter] = useState<FilterId>(isFilterId(filterParam) ? filterParam : 'all');
+  const [filter, setFilter] = useState<FilterId>(isFilterId(filterParam) ? filterParam : 'current');
 
-  const { data: tenants = [], isLoading } = useTenants();
+  const { data: tenants = [], isLoading } = useTenants(undefined, 'all');
   const { data: properties = [] } = useProperties();
 
   const areaById = useMemo(() => {
@@ -79,10 +73,13 @@ export default function TenantsScreen(): React.ReactElement {
     const q = query.trim().toLowerCase();
     return tenants.filter((t) => {
       const matchesFilter =
-        filter === 'all' ||
-        (filter === 'current' && t.status === 'up-to-date') ||
-        (filter === 'action' && ACTION_STATES.includes(t.status));
-      const area = (t.propertyId && areaById.get(t.propertyId)) || '';
+        (filter === 'current' && t.lifecycle === 'current') ||
+        (filter === 'action' &&
+          (t.lifecycle === 'unassigned' ||
+            (t.lifecycle === 'current' && ACTION_STATES.includes(t.status)))) ||
+        (filter === 'evicted' && t.lifecycle === 'evicted');
+      const propertyId = t.propertyId ?? t.previousPropertyId;
+      const area = (propertyId && areaById.get(propertyId)) || '';
       const haystack = `${t.fullName} ${area}`.toLowerCase();
       return matchesFilter && haystack.includes(q);
     });
@@ -140,11 +137,13 @@ export default function TenantsScreen(): React.ReactElement {
           <EmptyState icon="users" title="No tenants" message="Nothing matches here." />
         ) : (
           list.map((t) => {
-            const area = (t.propertyId && areaById.get(t.propertyId)) || '';
+            const propertyId = t.propertyId ?? t.previousPropertyId;
+            const area = (propertyId && areaById.get(propertyId)) || '';
             const end = monthYear(t.leaseEndDate);
-            const subtitle = [area, end ? `ends ${end}` : '']
-              .filter(Boolean)
-              .join(' · ');
+            const subtitle =
+              t.lifecycle === 'unassigned'
+                ? 'Not assigned to a property'
+                : [area, end ? `ends ${end}` : ''].filter(Boolean).join(' · ');
             return (
               <Pressable
                 key={t.id}
@@ -207,7 +206,13 @@ export default function TenantsScreen(): React.ReactElement {
                         /yr
                       </Text>
                     </Text>
-                    <StatusChip status={tenantChip(t.status)} />
+                    {t.lifecycle === 'evicted' ? (
+                      <Chip label="Evicted" tone="danger" icon="door" />
+                    ) : t.lifecycle === 'unassigned' ? (
+                      <Chip label="Unassigned" tone="warn" icon="alert" />
+                    ) : (
+                      <StatusChip status={tenantChip(t.status)} />
+                    )}
                   </View>
                 </View>
               </Pressable>

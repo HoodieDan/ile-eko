@@ -48,7 +48,10 @@ export async function summaryNumbers(landlordId: string): Promise<DashboardSumma
   const dueAmt = obAgg[0]?.dueAmt ?? 0;
 
   // Occupancy: units + standalone properties are the targets.
-  const propIds = (await Property.find({ landlordId: lid, archivedAt: { $exists: false } }, { _id: 1, hasUnits: 1 }).lean());
+  const propIds = await Property.find(
+    { landlordId: lid, archivedAt: { $exists: false } },
+    { _id: 1, hasUnits: 1 },
+  ).lean();
   const standalone = propIds.filter((p) => !p.hasUnits);
   const unitAgg = await Unit.aggregate([
     { $match: { propertyId: { $in: propIds.map((p) => p._id) }, archivedAt: { $exists: false } } },
@@ -77,7 +80,17 @@ export async function summaryNumbers(landlordId: string): Promise<DashboardSumma
   const denom = collected + overdueAmt + dueAmt;
   const collectedPct = denom ? Math.round((collected / denom) * 100) : 100;
 
-  return { collected, rollAnnual, overdueAmt, dueAmt, vacantAmt, occupied, total, occupancyPct, collectedPct };
+  return {
+    collected,
+    rollAnnual,
+    overdueAmt,
+    dueAmt,
+    vacantAmt,
+    occupied,
+    total,
+    occupancyPct,
+    collectedPct,
+  };
 }
 
 /** Upcoming/overdue rent list (top N), sorted overdue → due → upcoming. */
@@ -88,7 +101,14 @@ export async function upcomingRent(landlordId: string, limit = 5): Promise<Upcom
     { $sort: { dueDate: 1 } },
     { $limit: 50 },
     { $lookup: { from: 'tenants', localField: 'tenantId', foreignField: '_id', as: 'tenant' } },
-    { $lookup: { from: 'properties', localField: 'propertyId', foreignField: '_id', as: 'property' } },
+    {
+      $lookup: {
+        from: 'properties',
+        localField: 'propertyId',
+        foreignField: '_id',
+        as: 'property',
+      },
+    },
     { $unwind: { path: '$tenant', preserveNullAndEmptyArrays: true } },
     { $unwind: { path: '$property', preserveNullAndEmptyArrays: true } },
   ]);
@@ -155,11 +175,7 @@ export async function tenantLedgerRows(landlordId: string, limit = 25): Promise<
         },
         overdueCount: {
           $sum: {
-            $cond: [
-              { $and: [{ $ne: ['$settlement', 'paid'] }, { $lt: ['$dueDate', now] }] },
-              1,
-              0,
-            ],
+            $cond: [{ $and: [{ $ne: ['$settlement', 'paid'] }, { $lt: ['$dueDate', now] }] }, 1, 0],
           },
         },
         earliestUnpaid: {
@@ -168,7 +184,14 @@ export async function tenantLedgerRows(landlordId: string, limit = 25): Promise<
       },
     },
     { $lookup: { from: 'tenants', localField: '_id', foreignField: '_id', as: 'tenant' } },
-    { $lookup: { from: 'properties', localField: 'propertyId', foreignField: '_id', as: 'property' } },
+    {
+      $lookup: {
+        from: 'properties',
+        localField: 'propertyId',
+        foreignField: '_id',
+        as: 'property',
+      },
+    },
     { $unwind: { path: '$tenant', preserveNullAndEmptyArrays: true } },
     { $unwind: { path: '$property', preserveNullAndEmptyArrays: true } },
   ]);
@@ -268,12 +291,28 @@ export type TenantLeaseFacts = {
   leaseEndDate?: string;
   paymentDueDate?: string;
   status: 'up-to-date' | 'due' | 'overdue' | 'partial' | 'no-lease';
+  lifecycle: 'current' | 'unassigned' | 'evicted';
+  previousPropertyId?: string;
+  previousUnitId?: string;
 };
 
 /** Derive a tenant's current-lease facts + status from the ledger. */
 export async function tenantLeaseFacts(tenantId: string): Promise<TenantLeaseFacts> {
   const lease = await Lease.findOne({ tenantId: oid(tenantId), status: 'active' }).lean();
-  if (!lease) return { status: 'no-lease' };
+  if (!lease) {
+    const previous = await Lease.findOne({ tenantId: oid(tenantId), status: { $ne: 'active' } })
+      .sort({ endedAt: -1, updatedAt: -1 })
+      .lean();
+    if (previous?.endReason === 'evicted') {
+      return {
+        status: 'no-lease',
+        lifecycle: 'evicted',
+        previousPropertyId: String(previous.propertyId),
+        ...(previous.unitId ? { previousUnitId: String(previous.unitId) } : {}),
+      };
+    }
+    return { status: 'no-lease', lifecycle: 'unassigned' };
+  }
 
   const now = new Date();
   const obligations = await RentObligation.find({ leaseId: lease._id }).sort({ dueDate: 1 }).lean();
@@ -298,7 +337,10 @@ export async function tenantLeaseFacts(tenantId: string): Promise<TenantLeaseFac
     paymentSchedule: lease.schedule,
     leaseStartDate: new Date(lease.startDate).toISOString().slice(0, 10),
     leaseEndDate: new Date(lease.endDate).toISOString().slice(0, 10),
-    ...(nextUnpaid ? { paymentDueDate: new Date(nextUnpaid.dueDate).toISOString().slice(0, 10) } : {}),
+    ...(nextUnpaid
+      ? { paymentDueDate: new Date(nextUnpaid.dueDate).toISOString().slice(0, 10) }
+      : {}),
     status,
+    lifecycle: 'current',
   };
 }

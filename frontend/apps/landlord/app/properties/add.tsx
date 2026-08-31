@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Image, Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Screen,
   AppBar,
@@ -21,6 +21,8 @@ import {
 import {
   api,
   useCreateProperty,
+  useProperty,
+  useUpdateProperty,
   useUpload,
   type PaymentFrequency,
   type PropertyType,
@@ -172,8 +174,12 @@ function PhotoUpload({
 
 export default function AddProperty(): React.ReactElement {
   const router = useRouter();
+  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const editing = Boolean(editId);
   const { showToast } = useToast();
   const createProperty = useCreateProperty();
+  const updateProperty = useUpdateProperty();
+  const { data: existing, isError: existingError, refetch: refetchExisting } = useProperty(editId);
   const upload = useUpload();
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -191,6 +197,24 @@ export default function AddProperty(): React.ReactElement {
     multi: false,
     freq: 'annual',
   });
+  const hydratedPropertyId = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!existing || hydratedPropertyId.current === existing.id) return;
+    hydratedPropertyId.current = existing.id;
+    setForm({
+      title: existing.propertyTitle,
+      address: existing.address,
+      area: existing.area,
+      type: existing.propertyType,
+      desc: existing.description,
+      rent: existing.rentAmount != null ? String(existing.rentAmount) : '',
+      bedrooms: existing.bedrooms != null ? String(existing.bedrooms) : '',
+      bathrooms: existing.bathrooms != null ? String(existing.bathrooms) : '',
+      multi: existing.hasUnits,
+      freq: existing.paymentFrequency,
+    });
+  }, [existing]);
 
   const set = <K extends keyof PropertyFormState>(key: K, value: PropertyFormState[K]): void => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -199,7 +223,8 @@ export default function AddProperty(): React.ReactElement {
   const rentAmount = form.rent ? Number(form.rent) : 0;
   const titleErr = form.title.trim() ? '' : 'Give this property a title';
   const addressErr = form.address.trim() ? '' : 'Enter the full address';
-  const rentErr = rentAmount > 0 ? '' : 'Enter the annual rent';
+  const rentRequired = !editing || existing?.rentAmount != null;
+  const rentErr = !rentRequired || rentAmount > 0 ? '' : 'Enter the annual rent';
   const invalid = Boolean(titleErr || addressErr || rentErr);
 
   const addPhotos = async (): Promise<void> => {
@@ -238,7 +263,9 @@ export default function AddProperty(): React.ReactElement {
         });
         keys.push(objectKey);
       }
-      await api.patch(`/properties/${propertyId}`, { images: keys });
+      await api.patch(`/properties/${propertyId}`, {
+        images: editing ? [...(existing?.images ?? []), ...keys] : keys,
+      });
       return true;
     } catch {
       return false;
@@ -255,39 +282,76 @@ export default function AddProperty(): React.ReactElement {
     try {
       const bedrooms = form.bedrooms ? Number(form.bedrooms) : undefined;
       const bathrooms = form.bathrooms ? Number(form.bathrooms) : undefined;
-      const created = await createProperty.mutateAsync({
+      const input = {
         propertyTitle: form.title.trim(),
         address: form.address.trim(),
         area: form.area,
-        lga: LGA_BY_AREA[form.area] ?? 'Lagos',
+        lga:
+          existing && form.area === existing.area
+            ? existing.lga
+            : (LGA_BY_AREA[form.area] ?? 'Lagos'),
         propertyType: form.type as PropertyType,
-        ...(form.desc.trim() ? { description: form.desc.trim() } : {}),
-        rentAmount,
+        description: form.desc.trim(),
+        ...(form.rent ? { rentAmount } : {}),
         ...(bedrooms !== undefined ? { bedrooms } : {}),
         ...(bathrooms !== undefined ? { bathrooms } : {}),
         paymentFrequency: form.freq,
         hasUnits: form.multi,
-      });
+      };
+      const saved = editId
+        ? await updateProperty.mutateAsync({ id: editId, input })
+        : await createProperty.mutateAsync(input);
 
       if (photos.length > 0) {
         setUploadingPhotos(true);
-        const ok = await attachPhotos(created.id);
+        const ok = await attachPhotos(saved.id);
         setUploadingPhotos(false);
-        showToast(ok ? 'Property added' : "Property added, but the photos didn't upload");
+        showToast(
+          ok
+            ? editing
+              ? 'Property updated'
+              : 'Property added'
+            : `Property ${editing ? 'updated' : 'added'}, but the photos didn't upload`,
+        );
       } else {
-        showToast('Property added');
+        showToast(editing ? 'Property updated' : 'Property added');
       }
       router.back();
     } catch {
       setSubmitting(false);
       setUploadingPhotos(false);
-      showToast('Could not add property');
+      showToast(editing ? 'Could not update property' : 'Could not add property');
     }
   };
 
+  if (editing && existingError) {
+    return (
+      <Screen padded>
+        <AppBar title="Edit property" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
+          <Text variant="title" center>
+            Couldn't load this property
+          </Text>
+          <Button title="Try again" variant="secondary" onPress={() => void refetchExisting()} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (editing && (!existing || hydratedPropertyId.current !== existing.id)) {
+    return (
+      <Screen padded>
+        <AppBar title="Edit property" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen scroll padded bottomSpace={120}>
-      <AppBar title="Add property" onBack={() => router.back()} />
+      <AppBar title={editing ? 'Edit property' : 'Add property'} onBack={() => router.back()} />
 
       <View style={{ gap: spacing.lg, marginTop: spacing.sm }}>
         <Input
@@ -372,6 +436,12 @@ export default function AddProperty(): React.ReactElement {
             onRemove={removePhoto}
             disabled={submitting}
           />
+          {editing && existing?.images.length ? (
+            <Text variant="caption" color={colors.muted}>
+              {existing.images.length} existing {existing.images.length === 1 ? 'photo' : 'photos'}{' '}
+              will be kept.
+            </Text>
+          ) : null}
           {photos.length > 0 ? (
             <Text variant="caption" color={colors.muted}>
               {uploadingPhotos
@@ -393,7 +463,7 @@ export default function AddProperty(): React.ReactElement {
                 A block of flats or shared compound
               </Text>
             </View>
-            <Switch value={form.multi} onValueChange={(v) => set('multi', v)} />
+            <Switch value={form.multi} onValueChange={(v) => set('multi', v)} disabled={editing} />
           </View>
         </Card>
 
@@ -411,7 +481,7 @@ export default function AddProperty(): React.ReactElement {
 
       <View style={{ marginTop: spacing['2xl'] }}>
         <Button
-          title={uploadingPhotos ? 'Uploading photos…' : 'Save property'}
+          title={uploadingPhotos ? 'Uploading photos…' : editing ? 'Save changes' : 'Save property'}
           icon="check"
           variant="primary"
           fullWidth

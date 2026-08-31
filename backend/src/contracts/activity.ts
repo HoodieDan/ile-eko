@@ -9,6 +9,7 @@ export const ActivityAction = z.enum([
   'unit.updated',
   'tenant.added',
   'tenant.updated',
+  'tenant.evicted',
   'lease.created',
   'lease.ended',
   'payment.logged',

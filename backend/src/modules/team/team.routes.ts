@@ -60,6 +60,25 @@ teamRouter.patch(
   '/caretakers/:id',
   validate(UpdateCaretakerInput),
   asyncHandler(async (req, res) => {
-    res.json(await svc.updateCaretaker(landlordScope(req), actorFrom(req), req.params.id as string, req.body));
+    res.json(
+      await svc.updateCaretaker(
+        landlordScope(req),
+        actorFrom(req),
+        req.params.id as string,
+        req.body,
+      ),
+    );
+  }),
+);
+
+teamRouter.post(
+  '/caretakers/:id/revoke',
+  asyncHandler(async (req, res) => {
+    const items = await svc.revokeCaretaker(
+      landlordScope(req),
+      actorFrom(req),
+      req.params.id as string,
+    );
+    res.json({ items, total: items.length });
   }),
 );

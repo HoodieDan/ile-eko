@@ -25,7 +25,10 @@ export interface Actor {
   name: string;
 }
 
-function settlementFor(amountAllocated: number, amountDue: number): 'unallocated' | 'partial' | 'paid' {
+function settlementFor(
+  amountAllocated: number,
+  amountDue: number,
+): 'unallocated' | 'partial' | 'paid' {
   if (amountAllocated <= 0) return 'unallocated';
   if (amountAllocated >= amountDue) return 'paid';
   return 'partial';
@@ -85,6 +88,12 @@ export async function createLease(
   try {
     let created!: LeaseDoc;
     await session.withTransaction(async () => {
+      const currentTenantLease = await Lease.findOne({
+        tenantId: tenant._id,
+        status: 'active',
+      }).session(session);
+      if (currentTenantLease) throw AppError.conflict('Tenant already has an active lease');
+
       const annualizedRent = input.billingAmount * PERIODS_PER_YEAR[input.schedule];
       const [lease] = await Lease.create(
         [
@@ -105,6 +114,14 @@ export async function createLease(
         { session },
       );
       created = lease!;
+
+      // A previously evicted person can become a current tenant again without
+      // losing their identity or payment history.
+      await Tenant.updateOne(
+        { _id: tenant._id },
+        { $unset: { evictedAt: 1, evictedLeaseId: 1 } },
+        { session },
+      );
 
       const obligations = buildObligations(created);
       if (obligations.length) await RentObligation.insertMany(obligations, { session });
@@ -132,7 +149,7 @@ export async function createLease(
     return created;
   } catch (err) {
     if ((err as { code?: number }).code === 11000) {
-      throw AppError.conflict('That property/unit already has an active lease');
+      throw AppError.conflict('That tenant or property/unit already has an active lease');
     }
     throw err;
   } finally {
@@ -141,7 +158,11 @@ export async function createLease(
 }
 
 /** End a lease → vacancy + re-list, synchronous (§5.5). */
-export async function endLease(leaseId: string, actor: Actor): Promise<void> {
+export async function endLease(
+  leaseId: string,
+  actor: Actor,
+  reason: 'ended' | 'evicted' = 'ended',
+): Promise<void> {
   const lease = await Lease.findById(leaseId);
   if (!lease || lease.status !== 'active') throw AppError.notFound('Active lease not found');
 
@@ -149,7 +170,17 @@ export async function endLease(leaseId: string, actor: Actor): Promise<void> {
   try {
     await session.withTransaction(async () => {
       lease.status = 'ended';
+      lease.endReason = reason;
+      lease.endedAt = new Date();
       await lease.save({ session });
+
+      if (reason === 'evicted') {
+        await Tenant.updateOne(
+          { _id: lease.tenantId },
+          { $set: { evictedAt: lease.endedAt, evictedLeaseId: lease._id } },
+          { session },
+        );
+      }
 
       // Cancel unpaid FUTURE obligations (no payment attached).
       await RentObligation.deleteMany(
@@ -159,7 +190,12 @@ export async function endLease(leaseId: string, actor: Actor): Promise<void> {
 
       await recomputeRiskDeterministic(String(lease.tenantId), session);
 
-      await setTargetOccupancy(session, String(lease.propertyId), lease.unitId ? String(lease.unitId) : null, false);
+      await setTargetOccupancy(
+        session,
+        String(lease.propertyId),
+        lease.unitId ? String(lease.unitId) : null,
+        false,
+      );
       await refreshListingProjection(
         session,
         String(lease.propertyId),
@@ -171,14 +207,14 @@ export async function endLease(leaseId: string, actor: Actor): Promise<void> {
         actorId: actor.userId,
         actorName: actor.name,
         landlordId: lease.landlordId,
-        action: 'lease.ended',
+        action: reason === 'evicted' ? 'tenant.evicted' : 'lease.ended',
         propertyId: lease.propertyId,
         entityId: lease._id,
-        description: 'Lease ended',
+        description: reason === 'evicted' ? 'Tenant evicted and lease ended' : 'Lease ended',
       });
       await emitEvent(session, {
         type: 'lease.ended',
-        payload: { leaseId: lease.id },
+        payload: { leaseId: lease.id, reason },
         dedupeKey: `lease.ended:${lease.id}`,
       });
     });
@@ -198,7 +234,8 @@ async function allocate(
   if (explicit && explicit.length) {
     for (const a of explicit) {
       const ob = await RentObligation.findById(a.obligationId).session(session);
-      if (ob && String(ob.leaseId) === String(payment.leaseId)) targets.push({ ob, take: a.amount });
+      if (ob && String(ob.leaseId) === String(payment.leaseId))
+        targets.push({ ob, take: a.amount });
     }
   } else {
     // oldest-due-first across open obligations
@@ -333,7 +370,9 @@ export async function reversePayment(paymentId: string, actor: Actor): Promise<P
       reversal = r!;
 
       // Offset the original allocations.
-      const allocations = await PaymentAllocation.find({ paymentId: original._id }).session(session);
+      const allocations = await PaymentAllocation.find({ paymentId: original._id }).session(
+        session,
+      );
       for (const a of allocations) {
         await PaymentAllocation.create(
           [{ paymentId: reversal._id, obligationId: a.obligationId, amount: -a.amount }],

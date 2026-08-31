@@ -9,6 +9,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { completeOnboarding } from '@ile-eko/core';
 import {
   AILabel,
   Button,
@@ -63,6 +64,10 @@ export default function Onboarding(): React.ReactElement {
   const ref = useRef<ScrollView>(null);
   const [i, setI] = useState(0);
   const last = i === SLIDES.length - 1;
+
+  React.useEffect(() => {
+    void completeOnboarding('landlord').catch(() => undefined);
+  }, []);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>): void => {
     setI(Math.round(e.nativeEvent.contentOffset.x / width));

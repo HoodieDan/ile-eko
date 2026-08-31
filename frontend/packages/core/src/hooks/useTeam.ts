@@ -25,6 +25,33 @@ export function useCaretakers() {
   });
 }
 
+export interface CaretakerMembershipDTO {
+  id: string;
+  propertyId: string;
+  caretakerUserId: string;
+  invitedBy: string;
+  role: 'caretaker' | 'viewer';
+  canLogPayments: boolean;
+  canEditTenants: boolean;
+  canUploadImages: boolean;
+  canManageUnits: boolean;
+  canEditProperty: boolean;
+  status: 'active' | 'revoked';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useCaretaker(id: string | undefined) {
+  return useQuery<CaretakerMembershipDTO[]>({
+    queryKey: ['team', 'caretaker', id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const res = await api.get<ListEnvelope<CaretakerMembershipDTO>>(`/team/caretakers/${id}`);
+      return res.items;
+    },
+  });
+}
+
 /** Per-property caretaker permission flags (matches the API's CaretakerPermissions). */
 export interface CaretakerPermissions {
   canLogPayments?: boolean;
@@ -54,6 +81,47 @@ export interface InviteCaretakerResult {
   /** False when mail isn't configured or was rejected — show `shareUrl` instead. */
   emailed: boolean;
   emailError?: string;
+}
+
+export interface UpdateCaretakerAccessInput {
+  caretakerId: string;
+  propertyId: string;
+  permissions?: CaretakerPermissions;
+  status?: 'active' | 'revoked';
+}
+
+export function useUpdateCaretakerAccess() {
+  const qc = useQueryClient();
+  return useMutation<CaretakerMembershipDTO, Error, UpdateCaretakerAccessInput>({
+    mutationFn: ({ caretakerId, ...input }) =>
+      api.patch<CaretakerMembershipDTO>(`/team/caretakers/${caretakerId}`, input),
+    onSuccess: async (_membership, variables) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['team', 'caretakers'] }),
+        qc.invalidateQueries({ queryKey: ['team', 'caretaker', variables.caretakerId] }),
+        qc.invalidateQueries({ queryKey: ['activity'] }),
+      ]);
+    },
+  });
+}
+
+export function useRevokeCaretakerAccess() {
+  const qc = useQueryClient();
+  return useMutation<CaretakerMembershipDTO[], Error, string>({
+    mutationFn: async (caretakerId) => {
+      const res = await api.post<ListEnvelope<CaretakerMembershipDTO>>(
+        `/team/caretakers/${caretakerId}/revoke`,
+      );
+      return res.items;
+    },
+    onSuccess: async (_memberships, caretakerId) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['team', 'caretakers'] }),
+        qc.invalidateQueries({ queryKey: ['team', 'caretaker', caretakerId] }),
+        qc.invalidateQueries({ queryKey: ['activity'] }),
+      ]);
+    },
+  });
 }
 
 export function useInviteCaretaker() {

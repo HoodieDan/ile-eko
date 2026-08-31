@@ -118,8 +118,8 @@ export function Button({
 export interface IconButtonProps {
   name: IconName;
   onPress?: () => void;
-  /** `surface` = white with soft shadow (44px). `ghost` = surface-2 inset (42px). */
-  variant?: 'surface' | 'ghost';
+  /** Surface, inset ghost, or translucent high-contrast control for image headers. */
+  variant?: 'surface' | 'ghost' | 'dark';
   size?: number;
   iconSize?: number;
   color?: string;
@@ -135,12 +135,19 @@ export function IconButton({
   variant = 'surface',
   size,
   iconSize = 22,
-  color = colors.ink,
+  color,
   disabled = false,
   accessibilityLabel,
   style,
 }: IconButtonProps): React.ReactElement {
   const dim = size ?? (variant === 'surface' ? 44 : 42);
+  const iconColor = color ?? (variant === 'dark' ? '#FFFFFF' : colors.ink);
+  const backgroundColor =
+    variant === 'surface'
+      ? colors.surface
+      : variant === 'dark'
+        ? 'rgba(10,38,29,0.68)'
+        : colors.surface2;
   return (
     <Pressable
       onPress={onPress}
@@ -154,7 +161,7 @@ export function IconButton({
           borderRadius: variant === 'surface' ? 13 : 12,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: variant === 'surface' ? colors.surface : colors.surface2,
+          backgroundColor,
           opacity: disabled ? 0.5 : 1,
           transform: [{ scale: pressed ? 0.93 : 1 }],
         },
@@ -162,7 +169,7 @@ export function IconButton({
         style,
       ]}
     >
-      <Icon name={name} size={iconSize} color={color} />
+      <Icon name={name} size={iconSize} color={iconColor} />
     </Pressable>
   );
 }

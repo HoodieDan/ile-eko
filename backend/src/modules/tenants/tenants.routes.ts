@@ -15,19 +15,31 @@ export const tenantsRouter: Router = Router();
 tenantsRouter.use(authenticate, requireRole('landlord', 'admin', 'caretaker'), attachOrg);
 
 function assertCanEditTenants(req: Parameters<typeof orgOf>[0]): void {
-  if (!anyPropertyPermission(orgOf(req), 'canEditTenants')) throw AppError.forbidden('Not permitted');
+  if (!anyPropertyPermission(orgOf(req), 'canEditTenants'))
+    throw AppError.forbidden('Not permitted');
 }
 
 tenantsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
     const org = orgOf(req);
+    const requestedView = req.query.view;
+    const view = requestedView === 'evicted' || requestedView === 'all' ? requestedView : 'current';
     const items = await svc.listTenants(
       org.landlordId,
       req.query.propertyId as string | undefined,
       org.propertyIds,
+      view,
     );
     res.json({ items, total: items.length });
+  }),
+);
+
+tenantsRouter.post(
+  '/:id/evict',
+  requireRole('landlord', 'admin'),
+  asyncHandler(async (req, res) => {
+    res.json(await svc.evictTenant(orgOf(req).landlordId, actorFrom(req), req.params.id as string));
   }),
 );
 
@@ -54,7 +66,14 @@ tenantsRouter.patch(
   validate(UpdateTenantInput),
   asyncHandler(async (req, res) => {
     assertCanEditTenants(req);
-    res.json(await svc.updateTenant(orgOf(req).landlordId, actorFrom(req), req.params.id as string, req.body));
+    res.json(
+      await svc.updateTenant(
+        orgOf(req).landlordId,
+        actorFrom(req),
+        req.params.id as string,
+        req.body,
+      ),
+    );
   }),
 );
 

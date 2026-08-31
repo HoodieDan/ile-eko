@@ -24,6 +24,9 @@ const tenantSchema = new Schema(
       required: false,
     },
     archivedAt: { type: Date },
+    /** Set only when an active lease is ended through the eviction workflow. */
+    evictedAt: { type: Date, index: true },
+    evictedLeaseId: { type: Types.ObjectId, ref: 'Lease' },
   },
   { timestamps: true },
 );

@@ -82,11 +82,16 @@ export function presentTenant(t: TenantDoc, facts: TenantLeaseFacts): TenantDTO 
     ...(facts.leaseId ? { leaseId: facts.leaseId } : {}),
     ...(facts.unitId ? { unitId: facts.unitId } : {}),
     ...(facts.rentAmount != null ? { rentAmount: facts.rentAmount } : {}),
-    ...(facts.paymentSchedule ? { paymentSchedule: facts.paymentSchedule as PaymentFrequency } : {}),
+    ...(facts.paymentSchedule
+      ? { paymentSchedule: facts.paymentSchedule as PaymentFrequency }
+      : {}),
     ...(facts.leaseStartDate ? { leaseStartDate: facts.leaseStartDate } : {}),
     ...(facts.leaseEndDate ? { leaseEndDate: facts.leaseEndDate } : {}),
     ...(facts.paymentDueDate ? { paymentDueDate: facts.paymentDueDate } : {}),
     status: facts.status,
+    lifecycle: facts.lifecycle,
+    ...(facts.previousPropertyId ? { previousPropertyId: facts.previousPropertyId } : {}),
+    ...(facts.previousUnitId ? { previousUnitId: facts.previousUnitId } : {}),
     ...(t.riskCache?.band
       ? {
           risk: {
@@ -114,6 +119,8 @@ export function presentLease(l: LeaseDoc): LeaseDTO {
     annualizedRent: l.annualizedRent,
     schedule: l.schedule as PaymentFrequency,
     status: l.status as LeaseDTO['status'],
+    ...(l.endReason ? { endReason: l.endReason as LeaseDTO['endReason'] } : {}),
+    ...(l.endedAt ? { endedAt: iso(l.endedAt as Date) } : {}),
     createdAt: iso(l.createdAt as Date),
     updatedAt: iso(l.updatedAt as Date),
   };

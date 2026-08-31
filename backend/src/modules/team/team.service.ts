@@ -123,12 +123,23 @@ export async function invite(
       inviteUrl: shareUrl,
       propertyCount: input.grants.length,
     });
-    const res = await sendEmail({ to: input.email, subject: mail.subject, html: mail.html, text: mail.text });
+    const res = await sendEmail({
+      to: input.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    });
     emailed = res.sent;
     emailError = res.reason;
   }
 
-  return { invitationId: invitation.id, token, shareUrl, emailed, ...(emailError ? { emailError } : {}) };
+  return {
+    invitationId: invitation.id,
+    token,
+    shareUrl,
+    emailed,
+    ...(emailError ? { emailError } : {}),
+  };
 }
 
 export async function resend(landlordId: string, invitationId: string): Promise<{ token: string }> {
@@ -144,8 +155,12 @@ export async function resend(landlordId: string, invitationId: string): Promise<
 
 /** Accept an invitation → create/link the caretaker + materialize memberships (§5.7a). */
 export async function accept(input: AcceptInviteInput): Promise<{ token: string; userId: string }> {
-  const inv = await TeamInvitation.findOne({ tokenHash: hashToken(input.inviteToken), status: 'pending' });
-  if (!inv || inv.expiresAt.getTime() < Date.now()) throw AppError.badRequest('Invalid or expired invitation');
+  const inv = await TeamInvitation.findOne({
+    tokenHash: hashToken(input.inviteToken),
+    status: 'pending',
+  });
+  if (!inv || inv.expiresAt.getTime() < Date.now())
+    throw AppError.badRequest('Invalid or expired invitation');
 
   return withTxn(async (session) => {
     // Find or create the caretaker user.
@@ -238,7 +253,10 @@ export async function listCaretakers(landlordId: string): Promise<CaretakerSumma
   return result;
 }
 
-export async function getCaretaker(landlordId: string, caretakerId: string): Promise<RolePermissionDTO[]> {
+export async function getCaretaker(
+  landlordId: string,
+  caretakerId: string,
+): Promise<RolePermissionDTO[]> {
   const memberships = await TeamMembership.find({ landlordId, caretakerId });
   if (memberships.length === 0) throw AppError.notFound('Caretaker not found');
   return memberships.map(presentMembership);
@@ -250,7 +268,11 @@ export async function updateCaretaker(
   caretakerId: string,
   input: UpdateCaretakerInput,
 ): Promise<RolePermissionDTO> {
-  const membership = await TeamMembership.findOne({ landlordId, caretakerId, propertyId: input.propertyId });
+  const membership = await TeamMembership.findOne({
+    landlordId,
+    caretakerId,
+    propertyId: input.propertyId,
+  });
   if (!membership) throw AppError.notFound('Membership not found');
 
   if (input.permissions) Object.assign(membership, fullPerms(input.permissions));
@@ -278,4 +300,47 @@ export async function updateCaretaker(
     });
   }
   return presentMembership(membership);
+}
+
+/** Revoke every property grant owned by this landlord as one atomic action. */
+export async function revokeCaretaker(
+  landlordId: string,
+  actor: Actor,
+  caretakerId: string,
+): Promise<RolePermissionDTO[]> {
+  if (!Types.ObjectId.isValid(caretakerId)) throw AppError.notFound('Caretaker not found');
+  const memberships = await TeamMembership.find({ landlordId, caretakerId });
+  if (memberships.length === 0) throw AppError.notFound('Caretaker not found');
+
+  return withTxn(async (session) => {
+    await TeamMembership.updateMany(
+      { landlordId, caretakerId, status: 'active' },
+      { $set: { status: 'revoked' } },
+      { session },
+    );
+
+    const remaining = await TeamMembership.countDocuments({
+      caretakerId,
+      status: 'active',
+    }).session(session);
+    if (remaining === 0) {
+      await Session.updateMany(
+        { userId: caretakerId, revokedAt: { $exists: false } },
+        { $set: { revokedAt: new Date() } },
+        { session },
+      );
+    }
+
+    await emitActivity(session, {
+      actorId: actor.userId,
+      actorName: actor.name,
+      landlordId,
+      action: 'team.removed',
+      entityId: caretakerId,
+      description: 'All caretaker access revoked',
+    });
+
+    const updated = await TeamMembership.find({ landlordId, caretakerId }).session(session);
+    return updated.map(presentMembership);
+  });
 }

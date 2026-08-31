@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import {
   Screen,
   AppBar,
@@ -14,6 +14,7 @@ import {
   Button,
   Icon,
   IconButton,
+  BottomSheet,
   Timeline,
   TimelineItem,
   EmptyState,
@@ -27,12 +28,14 @@ import {
 import {
   useTenant,
   useProperty,
+  useEvictTenant,
   naira,
   initialsOf,
   type TenantDTO,
   type PaymentReceiptDTO,
 } from '@ile-eko/core';
 import { openTenantContact, type TenantContactChannel } from '@/contact/tenantContact';
+import { LogPaymentSheet } from '@/payments/LogPaymentSheet';
 
 type RiskBand = NonNullable<TenantDTO['risk']>['band'];
 
@@ -51,7 +54,7 @@ const METHOD_LABEL: Record<PaymentReceiptDTO['method'], string> = {
 
 function tenantChip(status: TenantDTO['status']): StatusKind {
   if (status === 'up-to-date') return 'paid';
-  if (status === 'no-lease') return 'vacant';
+  if (status === 'no-lease') return 'pending';
   return status;
 }
 
@@ -130,9 +133,12 @@ export default function TenantDetailScreen(): React.ReactElement | null {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showToast } = useToast();
+  const [settingsVisible, setSettingsVisible] = React.useState(false);
+  const [logPaymentVisible, setLogPaymentVisible] = React.useState(false);
+  const evictTenant = useEvictTenant();
 
   const { data: t, isLoading, isError, refetch } = useTenant(id);
-  const { data: prop } = useProperty(t?.propertyId);
+  const { data: prop } = useProperty(t?.propertyId ?? t?.previousPropertyId);
 
   const contact = async (channel: TenantContactChannel): Promise<void> => {
     const opened = await openTenantContact(channel, t?.phone);
@@ -174,13 +180,43 @@ export default function TenantDetailScreen(): React.ReactElement | null {
 
   const risk = t.risk ? RISK_STYLE[t.risk.band] : null;
 
+  const confirmEviction = (): void => {
+    Alert.alert(
+      'Evict tenant?',
+      `This ends ${t.fullName}'s active lease and makes the property or unit vacant. Payment history will be kept.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Evict tenant',
+          style: 'destructive',
+          onPress: () => {
+            evictTenant.mutate(t.id, {
+              onSuccess: () => {
+                setSettingsVisible(false);
+                showToast('Tenant moved to eviction history');
+              },
+              onError: () => showToast('Could not evict tenant', 'alert'),
+            });
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <>
-      <Screen scroll padded bottomSpace={140}>
+      <Screen scroll padded bottomSpace={t.lifecycle === 'current' ? 140 : 40}>
         <AppBar
           title="Tenant"
           onBack={() => router.back()}
-          right={<IconButton name="settings" variant="surface" />}
+          right={
+            <IconButton
+              name="settings"
+              variant="surface"
+              accessibilityLabel="Tenant settings"
+              onPress={() => setSettingsVisible(true)}
+            />
+          }
         />
 
         {/* Identity */}
@@ -198,7 +234,13 @@ export default function TenantDetailScreen(): React.ReactElement | null {
               {t.fullName}
             </Text>
             <View style={{ marginTop: spacing.xs, flexDirection: 'row' }}>
-              <StatusChip status={tenantChip(t.status)} />
+              {t.lifecycle === 'evicted' ? (
+                <Chip label="Evicted" tone="danger" icon="door" />
+              ) : t.lifecycle === 'unassigned' ? (
+                <Chip label="Unassigned" tone="warn" icon="alert" />
+              ) : (
+                <StatusChip status={tenantChip(t.status)} />
+              )}
             </View>
           </View>
         </View>
@@ -261,7 +303,7 @@ export default function TenantDetailScreen(): React.ReactElement | null {
         </Card>
 
         {/* AI default risk */}
-        {risk ? (
+        {risk && t.lifecycle === 'current' ? (
           <AICard style={{ marginTop: spacing['2xl'] }}>
             <View
               style={{
@@ -307,25 +349,44 @@ export default function TenantDetailScreen(): React.ReactElement | null {
 
         {/* Lease & rent */}
         <Text variant="title" style={{ marginTop: spacing['2xl'], marginBottom: spacing.md }}>
-          Lease & rent
+          {t.lifecycle === 'current'
+            ? 'Lease & rent'
+            : t.lifecycle === 'evicted'
+              ? 'Former tenancy'
+              : 'Tenancy'}
         </Text>
-        <Card>
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              rowGap: spacing.lg,
-              justifyContent: 'space-between',
-            }}
-          >
-            <Fact k="Annual rent" v={naira(t.rentAmount ?? 0)} />
-            <Fact k="Schedule" v={cap(t.paymentSchedule)} />
-            <Fact k="Lease start" v={fmtDate(t.leaseStartDate)} />
-            <Fact k="Lease end" v={fmtDate(t.leaseEndDate)} />
-            <Fact k="Next due" v={fmtDate(t.paymentDueDate)} />
-            <Fact k="Property" v={prop?.area ?? '—'} />
-          </View>
-        </Card>
+        {t.lifecycle === 'current' ? (
+          <Card>
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                rowGap: spacing.lg,
+                justifyContent: 'space-between',
+              }}
+            >
+              <Fact k="Annual rent" v={naira(t.rentAmount ?? 0)} />
+              <Fact k="Schedule" v={cap(t.paymentSchedule)} />
+              <Fact k="Lease start" v={fmtDate(t.leaseStartDate)} />
+              <Fact k="Lease end" v={fmtDate(t.leaseEndDate)} />
+              <Fact k="Next due" v={fmtDate(t.paymentDueDate)} />
+              <Fact k="Property" v={prop?.area ?? '—'} />
+            </View>
+          </Card>
+        ) : (
+          <Card>
+            <Text variant="bodyStrong">
+              {t.lifecycle === 'evicted'
+                ? (prop?.propertyTitle ?? 'Previous property')
+                : 'No property assigned'}
+            </Text>
+            <Text variant="caption" color={colors.muted} style={{ marginTop: 4 }}>
+              {t.lifecycle === 'evicted'
+                ? 'The lease has ended. Payment history remains available below.'
+                : 'Add a lease when this tenant moves into a property or unit.'}
+            </Text>
+          </Card>
+        )}
 
         {/* Payment history */}
         <Text variant="title" style={{ marginTop: spacing['2xl'], marginBottom: spacing.md }}>
@@ -373,28 +434,67 @@ export default function TenantDetailScreen(): React.ReactElement | null {
         </Card>
       </Screen>
 
-      {/* Sticky log-payment action */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: spacing.xl,
-          paddingTop: spacing.md,
-          paddingBottom: spacing['2xl'],
-          backgroundColor: colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: colors.line,
-        }}
+      {t.lifecycle === 'current' ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: spacing.xl,
+            paddingTop: spacing.md,
+            paddingBottom: spacing['2xl'],
+            backgroundColor: colors.surface,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+          }}
+        >
+          <Button
+            title="Log payment"
+            variant="primary"
+            icon="plus"
+            onPress={() => setLogPaymentVisible(true)}
+          />
+        </View>
+      ) : null}
+
+      <LogPaymentSheet
+        tenant={logPaymentVisible ? t : null}
+        property={prop ?? undefined}
+        onClose={() => setLogPaymentVisible(false)}
+      />
+
+      <BottomSheet
+        visible={settingsVisible}
+        onClose={() => setSettingsVisible(false)}
+        title="Tenant settings"
       >
-        <Button
-          title="Log payment"
-          variant="primary"
-          icon="plus"
-          onPress={() => router.push('/payments/log')}
-        />
-      </View>
+        <View style={{ gap: spacing.md, marginTop: spacing.lg }}>
+          <Button
+            title="Edit tenant details"
+            variant="secondary"
+            icon="settings"
+            onPress={() => {
+              setSettingsVisible(false);
+              router.push({ pathname: '/tenants/add', params: { id: t.id } });
+            }}
+          />
+          {t.lifecycle === 'current' ? (
+            <Button
+              title="Evict tenant"
+              variant="destructive"
+              icon="door"
+              loading={evictTenant.isPending}
+              onPress={confirmEviction}
+            />
+          ) : null}
+          {t.lifecycle === 'current' ? (
+            <Text variant="caption" color={colors.muted} center>
+              Eviction preserves the tenant and payment history.
+            </Text>
+          ) : null}
+        </View>
+      </BottomSheet>
     </>
   );
 }

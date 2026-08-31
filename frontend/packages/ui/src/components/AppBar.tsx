@@ -41,10 +41,10 @@ export function AppBar({
       {onBack ? (
         <IconButton
           name="back"
-          variant="ghost"
+          variant={onDark ? 'dark' : 'ghost'}
           onPress={onBack}
           color={fg}
-          style={{ marginLeft: -10 }}
+          accessibilityLabel="Go back"
         />
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>

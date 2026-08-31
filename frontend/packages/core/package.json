@@ -19,11 +19,13 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
+    "@react-native-async-storage/async-storage": "*",
     "@tanstack/react-query": "*",
     "expo-secure-store": "*"
   },
   "devDependencies": {
     "@ile-eko/config": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/react-query": "^5.62.7",
     "@types/react": "~19.1.17",
     "expo-secure-store": "~15.0.8",

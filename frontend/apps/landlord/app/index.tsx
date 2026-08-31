@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { prefetchLandlordBoot, useAuth } from '@ile-eko/core';
+import { hasCompletedOnboarding, prefetchLandlordBoot, useAuth } from '@ile-eko/core';
 import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
 
 /**
@@ -26,6 +26,7 @@ export default function Splash(): React.ReactElement {
   const queryClient = useQueryClient();
   const [elapsed, setElapsed] = useState(false);
   const [preloaded, setPreloaded] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(12)).current;
 
@@ -39,8 +40,18 @@ export default function Splash(): React.ReactElement {
   }, [fade, rise]);
 
   useEffect(() => {
+    let active = true;
+    void hasCompletedOnboarding('landlord').then((complete) => {
+      if (active) setOnboardingComplete(complete);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (status === 'loading') return;
-    // Signed out there is nothing to warm — onboarding needs no portfolio.
+    // Signed out there is nothing to warm.
     if (status !== 'authenticated') {
       setPreloaded(true);
       return;
@@ -59,13 +70,17 @@ export default function Splash(): React.ReactElement {
     return () => clearTimeout(timer);
   }, [status, queryClient]);
 
-  const ready = status !== 'loading' && preloaded;
+  const ready = status !== 'loading' && preloaded && onboardingComplete !== null;
 
   useEffect(() => {
     if (elapsed && ready) {
-      router.replace(status === 'authenticated' ? '/(tabs)' : '/(auth)/onboarding');
+      if (!onboardingComplete) {
+        router.replace('/(auth)/onboarding');
+      } else {
+        router.replace(status === 'authenticated' ? '/(tabs)' : '/(auth)/login');
+      }
     }
-  }, [elapsed, ready, status, router]);
+  }, [elapsed, onboardingComplete, ready, status, router]);
 
   return (
     <View style={{ flex: 1 }}>

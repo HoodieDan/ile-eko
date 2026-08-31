@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { prefetchTenantBoot, useAuth } from '@ile-eko/core';
+import { hasCompletedOnboarding, prefetchTenantBoot, useAuth } from '@ile-eko/core';
 import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
 
 /**
@@ -15,9 +15,9 @@ import { LogoMark, Text, colors, heroGradient } from '@ile-eko/ui';
 const PRELOAD_TIMEOUT_MS = 8000;
 
 /**
- * Branded splash. Browse-first: we drop straight into the Explore marketplace
- * (no auth gate), but only once the listings are cached so it opens populated
- * rather than empty. There is deliberately no way to tap past it.
+ * Branded splash. First-time users see the one-off intro; returning users drop
+ * straight into the Explore marketplace (no auth gate), but only once listings
+ * are cached so it opens populated rather than empty.
  */
 export default function Splash(): React.ReactElement {
   const router = useRouter();
@@ -25,8 +25,19 @@ export default function Splash(): React.ReactElement {
   const queryClient = useQueryClient();
   const [elapsed, setElapsed] = useState(false);
   const [preloaded, setPreloaded] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    let active = true;
+    void hasCompletedOnboarding('tenant').then((complete) => {
+      if (active) setOnboardingComplete(complete);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -54,8 +65,9 @@ export default function Splash(): React.ReactElement {
   }, [status, queryClient]);
 
   useEffect(() => {
-    if (elapsed && preloaded) router.replace('/(tabs)/explore');
-  }, [elapsed, preloaded, router]);
+    if (!elapsed || !preloaded || onboardingComplete === null) return;
+    router.replace(onboardingComplete ? '/(tabs)/explore' : '/(auth)/onboarding');
+  }, [elapsed, onboardingComplete, preloaded, router]);
 
   return (
     <View style={{ flex: 1 }}>

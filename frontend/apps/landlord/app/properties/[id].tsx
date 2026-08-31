@@ -20,6 +20,7 @@ import {
   heroGradient,
   Icon,
   IconButton,
+  Input,
   type IconName,
   Screen,
   SegmentedControl,
@@ -93,7 +94,7 @@ function occupancyChip(status: PropertyDTO['status']): StatusKind {
 
 function tenantChip(status: TenantDTO['status']): StatusKind {
   if (status === 'up-to-date') return 'paid';
-  if (status === 'no-lease') return 'vacant';
+  if (status === 'no-lease') return 'pending';
   return status;
 }
 
@@ -206,10 +207,10 @@ function RiskCard({ risk }: { risk: NonNullable<TenantDTO['risk']> }): React.Rea
 
 function MarketplaceCard({
   listing,
-  onOpenEnquiries,
+  targetLabel,
 }: {
   listing: PropertyListing | undefined;
-  onOpenEnquiries: () => void;
+  targetLabel?: string;
 }): React.ReactElement {
   const { showToast } = useToast();
   const toggleListing = useToggleListing();
@@ -230,7 +231,7 @@ function MarketplaceCard({
       return;
     }
     if (next && !listing.available) {
-      showToast("Occupied properties can't be listed", 'alert');
+      showToast("Occupied units can't be listed", 'alert');
       return;
     }
     setPendingListed(next);
@@ -243,7 +244,7 @@ function MarketplaceCard({
         onError: (err: unknown) => {
           setPendingListed(null);
           if (err instanceof ApiError && err.status === 409) {
-            showToast("Occupied properties can't be listed", 'alert');
+            showToast("Occupied units can't be listed", 'alert');
           } else {
             showToast("Couldn't update listing", 'alert');
           }
@@ -270,7 +271,9 @@ function MarketplaceCard({
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="bodyStrong" style={{ fontSize: 14.5 }} numberOfLines={1}>
-              {listed ? 'Listed on marketplace' : 'Not listed'}
+              {listed
+                ? `${targetLabel ?? 'Property'} is listed`
+                : `${targetLabel ?? 'Property'} not listed`}
             </Text>
             <Text variant="caption" color={colors.muted} style={{ marginTop: 1 }} numberOfLines={1}>
               {listed ? 'Visible in the tenant app' : 'Publish to start receiving enquiries'}
@@ -279,18 +282,6 @@ function MarketplaceCard({
         </View>
         <Switch value={listed} onValueChange={onToggle} disabled={toggleListing.isPending} />
       </View>
-
-      {listed ? (
-        <Button
-          title="View enquiries"
-          variant="secondary"
-          size="sm"
-          icon="message"
-          iconRight="fwd"
-          onPress={onOpenEnquiries}
-          style={{ marginTop: spacing.md }}
-        />
-      ) : null}
     </Card>
   );
 }
@@ -327,7 +318,9 @@ export default function PropertyDetail(): React.ReactElement | null {
   const multi = !!p?.hasUnits;
   const [section, setSection] = React.useState<SectionId>('overview');
   const [logVisible, setLogVisible] = React.useState(false);
+  const [paymentAmount, setPaymentAmount] = React.useState('');
   const logPayment = useLogPayment();
+  const toggleListing = useToggleListing();
 
   React.useEffect(() => {
     if (p) setSection(p.hasUnits ? 'units' : 'overview');
@@ -361,7 +354,8 @@ export default function PropertyDetail(): React.ReactElement | null {
 
   const occupancy = occupancyChip(p.status);
   const tenant = tenantsHere[0];
-  const listing = ((p.listings ?? []) as PropertyListing[])[0];
+  const listings = (p.listings ?? []) as PropertyListing[];
+  const standaloneListing = listings.find((item) => !item.unitId);
 
   const tenantById = new Map(tenantsHere.map((t) => [t.id, t]));
   const tenantIds = new Set(tenantsHere.map((t) => t.id));
@@ -380,7 +374,33 @@ export default function PropertyDetail(): React.ReactElement | null {
         { value: 'activity', label: 'Activity' },
       ];
 
-  const openLog = (): void => setLogVisible(true);
+  const openLog = (): void => {
+    if (multi) {
+      router.push('/payments/log');
+      return;
+    }
+    if (!tenant?.leaseId) {
+      showToast('No active lease to log against', 'alert');
+      return;
+    }
+    setPaymentAmount(String(tenant.rentAmount ?? p.rentAmount ?? ''));
+    setLogVisible(true);
+  };
+
+  const toggleStandaloneListing = (): void => {
+    if (!standaloneListing) {
+      showToast("Couldn't update listing", 'alert');
+      return;
+    }
+    const next = !standaloneListing.listed;
+    toggleListing.mutate(
+      { id: standaloneListing.id, listed: next },
+      {
+        onSuccess: () => showToast(next ? 'Listed on marketplace' : 'Removed from marketplace'),
+        onError: () => showToast("Couldn't update listing", 'alert'),
+      },
+    );
+  };
 
   const contactTenant = async (channel: TenantContactChannel, target: TenantDTO): Promise<void> => {
     const opened = await openTenantContact(channel, target.phone);
@@ -392,16 +412,20 @@ export default function PropertyDetail(): React.ReactElement | null {
     }
   };
 
-  const leaseIdForLog = payments[0]?.leaseId;
+  const leaseIdForLog = tenant?.leaseId;
+  const received = Number(paymentAmount.replace(/[^\d]/g, ''));
 
   const confirmLog = (): void => {
     if (!leaseIdForLog) {
-      showToast('No active lease to log against');
-      setLogVisible(false);
+      showToast('No active lease to log against', 'alert');
+      return;
+    }
+    if (received <= 0) {
+      showToast('Enter the amount received', 'alert');
       return;
     }
     logPayment.mutate(
-      { leaseId: leaseIdForLog, amount: p.rentAmount ?? 0, method: 'transfer' },
+      { leaseId: leaseIdForLog, amount: received, method: 'transfer' },
       {
         onSuccess: () => {
           setLogVisible(false);
@@ -454,9 +478,9 @@ export default function PropertyDetail(): React.ReactElement | null {
             right={
               <IconButton
                 name="settings"
-                variant="ghost"
-                color="#FFFFFF"
-                onPress={() => router.push('/properties/add')}
+                variant="dark"
+                accessibilityLabel="Edit property"
+                onPress={() => router.push({ pathname: '/properties/add', params: { id: p.id } })}
               />
             }
           />
@@ -492,14 +516,13 @@ export default function PropertyDetail(): React.ReactElement | null {
               payments={payments}
               activity={activity}
               suggestion={suggestion}
-              listing={listing}
+              listings={listings}
               section={section}
               sections={sections}
               onSection={setSection}
               onLog={openLog}
               onOpenTenant={(tid: string) => router.push(`/tenants/${tid}`)}
               onEnquiries={() => router.push('/enquiries')}
-              onListUnit={openLog}
               onCallTenant={(target) => void contactTenant('call', target)}
               onMessageTenant={(target) => void contactTenant('message', target)}
             />
@@ -518,14 +541,14 @@ export default function PropertyDetail(): React.ReactElement | null {
               borderTopColor: colors.line,
             }}
           >
-            <IconButton
-              name="settings"
-              variant="ghost"
-              size={52}
-              onPress={() => router.push('/properties/add')}
-            />
             {p.status === 'vacant' && !multi ? (
-              <Button title="List this unit" icon="door" onPress={openLog} style={{ flex: 1 }} />
+              <Button
+                title={standaloneListing?.listed ? 'Remove listing' : 'List this unit'}
+                icon="door"
+                loading={toggleListing.isPending}
+                onPress={toggleStandaloneListing}
+                style={{ flex: 1 }}
+              />
             ) : (
               <Button title="Log payment" icon="plus" onPress={openLog} style={{ flex: 1 }} />
             )}
@@ -534,7 +557,12 @@ export default function PropertyDetail(): React.ReactElement | null {
       </View>
 
       {/* Log payment sheet */}
-      <BottomSheet visible={logVisible} onClose={() => setLogVisible(false)} title="Log payment">
+      <BottomSheet
+        visible={logVisible}
+        onClose={() => setLogVisible(false)}
+        title="Log payment"
+        scroll
+      >
         <View style={{ marginTop: spacing.lg }}>
           <Card
             flat
@@ -566,29 +594,18 @@ export default function PropertyDetail(): React.ReactElement | null {
             >
               Amount received
             </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                minHeight: 54,
-                borderRadius: 14,
-                borderWidth: 1.5,
-                borderColor: colors.line,
-                backgroundColor: colors.surface,
-                paddingHorizontal: 16,
-              }}
-            >
-              <Text variant="bodyStrong" color={colors.muted} style={{ fontSize: 16 }}>
-                ₦
-              </Text>
-              <Text variant="bodyStrong" style={{ flex: 1, fontSize: 16, marginLeft: 6 }}>
-                {(p.rentAmount ?? 0).toLocaleString('en-NG')}
-              </Text>
-            </View>
+            <Input
+              value={paymentAmount}
+              onChangeText={(value) => setPaymentAmount(value.replace(/[^\d]/g, ''))}
+              keyboardType="number-pad"
+              placeholder="0"
+              icon="wallet"
+            />
           </View>
 
           <Button
-            title={`Confirm ${naira(p.rentAmount ?? 0)}`}
+            title={received > 0 ? `Confirm ${naira(received)}` : 'Enter amount received'}
+            disabled={received <= 0}
             loading={logPayment.isPending}
             onPress={confirmLog}
             style={{ marginTop: spacing.xl }}
@@ -612,14 +629,13 @@ interface BodyProps {
   payments: PaymentReceiptDTO[];
   activity: ActivityLogDTO[];
   suggestion: RentSuggestion | undefined;
-  listing: PropertyListing | undefined;
+  listings: PropertyListing[];
   section: SectionId;
   sections: { value: SectionId; label: string }[];
   onSection: (s: SectionId) => void;
   onLog: () => void;
   onOpenTenant: (id: string) => void;
   onEnquiries: () => void;
-  onListUnit: () => void;
   onCallTenant: (tenant: TenantDTO) => void;
   onMessageTenant: (tenant: TenantDTO) => void;
 }
@@ -634,18 +650,31 @@ function Body({
   payments,
   activity,
   suggestion,
-  listing,
+  listings,
   section,
   sections,
   onSection,
   onLog,
   onOpenTenant,
   onEnquiries,
-  onListUnit,
   onCallTenant,
   onMessageTenant,
 }: BodyProps): React.ReactElement {
   const delta = suggestion?.deltaPct ?? 0;
+  const marketplaceTargets = multi
+    ? units
+        .map((unit) => ({
+          listing: listings.find((item) => item.unitId === unit.id),
+          label: unit.label,
+        }))
+        .filter((target): target is { listing: PropertyListing; label: string } =>
+          Boolean(target.listing && (target.listing.available || target.listing.listed)),
+        )
+    : listings
+        .filter((item) => !item.unitId && (item.available || item.listed))
+        .map((listing) => ({ listing, label: 'Property' }));
+  const hasListedMarketplaceTarget = marketplaceTargets.some(({ listing }) => listing.listed);
+
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
@@ -686,7 +715,6 @@ function Body({
       {suggestion ? (
         <AICard
           padding={13}
-          onPress={onListUnit}
           style={{
             marginTop: spacing.md,
             flexDirection: 'row',
@@ -718,11 +746,22 @@ function Body({
       ) : null}
 
       {/* Marketplace listing status (vacant / has vacancy) */}
-      {(p.status === 'vacant' || p.status === 'partial') && (
-        <View style={{ marginTop: spacing.md }}>
-          <MarketplaceCard listing={listing} onOpenEnquiries={onEnquiries} />
+      {marketplaceTargets.length > 0 ? (
+        <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+          {marketplaceTargets.map(({ listing, label }) => (
+            <MarketplaceCard key={listing.id} listing={listing} targetLabel={label} />
+          ))}
+          {hasListedMarketplaceTarget ? (
+            <Button
+              title="View property enquiries"
+              variant="secondary"
+              icon="message"
+              iconRight="fwd"
+              onPress={onEnquiries}
+            />
+          ) : null}
         </View>
-      )}
+      ) : null}
 
       {/* Section tabs */}
       <SegmentedControl
@@ -737,7 +776,11 @@ function Body({
         {section === 'units' && (
           <View style={{ gap: 11 }}>
             {units.length === 0 ? (
-              <EmptyState icon="layers" title="No units yet" message="Add units to this property." />
+              <EmptyState
+                icon="layers"
+                title="No units yet"
+                message="Add units to this property."
+              />
             ) : (
               units.map((u) => {
                 const ut = tenantsHere.find((t) => t.unitId === u.id);
@@ -745,7 +788,7 @@ function Body({
                   <Card
                     key={u.id}
                     padding={14}
-                    onPress={() => (ut ? onOpenTenant(ut.id) : onListUnit())}
+                    onPress={ut ? () => onOpenTenant(ut.id) : undefined}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
                   >
                     <View
@@ -994,7 +1037,6 @@ function Body({
                 icon="door"
                 title="Vacant"
                 message="No tenant assigned. List it on the marketplace or add a tenant directly."
-                action={{ label: 'List this unit', onPress: onListUnit }}
               />
             </Card>
           ))}

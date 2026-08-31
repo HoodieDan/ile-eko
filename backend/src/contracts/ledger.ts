@@ -14,6 +14,8 @@ export const LeaseDTO = z.object({
   annualizedRent: z.number().int().nonnegative(),
   schedule: PaymentFrequency,
   status: z.enum(['active', 'ended', 'renewed']),
+  endReason: z.enum(['ended', 'evicted']).optional(),
+  endedAt: IsoDate.optional(),
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });
@@ -76,6 +78,8 @@ export const LogPaymentInput = z.object({
   receiptKey: z.string().optional(),
   notes: z.string().optional(),
   // optional explicit allocation; default = oldest-due-first
-  allocateTo: z.array(z.object({ obligationId: z.string(), amount: z.number().int().positive() })).optional(),
+  allocateTo: z
+    .array(z.object({ obligationId: z.string(), amount: z.number().int().positive() }))
+    .optional(),
 });
 export type LogPaymentInput = z.infer<typeof LogPaymentInput>;
